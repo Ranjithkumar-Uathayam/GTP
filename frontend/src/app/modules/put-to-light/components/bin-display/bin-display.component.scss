@@ -1,0 +1,132 @@
+.bin-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.bin-cell {
+  position: relative;
+  border-radius: 10px;
+  padding: 12px 10px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  border: 2px solid transparent;
+
+  &:hover:not(.inactive) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+
+  &.free {
+    background: rgba(76, 175, 80, .15);
+    border-color: rgba(76, 175, 80, .4);
+  }
+
+  &.active {
+    background: rgba(255, 193, 7, .2);
+    border-color: #ffd54f;
+    animation: glow 1.8s ease-in-out infinite;
+  }
+
+  &.urgent {
+    background: rgba(244, 67, 54, .2);
+    border-color: #ef9a9a;
+    animation: glow-red .9s ease-in-out infinite;
+  }
+
+  &.selected-bin {
+    background: rgba(33, 150, 243, .25);
+    border-color: #90caf9;
+    box-shadow: 0 0 16px rgba(33, 150, 243, .5);
+  }
+
+  &.inactive {
+    background: rgba(255,255,255,.03);
+    border-color: rgba(255,255,255,.08);
+    cursor: default;
+    opacity: .4;
+  }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 4px rgba(255,213,79,.4); }
+  50%       { box-shadow: 0 0 16px rgba(255,213,79,.8); }
+}
+
+@keyframes glow-red {
+  0%, 100% { box-shadow: 0 0 4px rgba(244,67,54,.4); }
+  50%       { box-shadow: 0 0 16px rgba(244,67,54,.9); }
+}
+
+.bin-light {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+
+  &.on {
+    background: #69f0ae;
+    box-shadow: 0 0 8px #69f0ae;
+  }
+  &.off {
+    background: rgba(255,255,255,.2);
+  }
+}
+
+.bin-code {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,.5);
+  margin-bottom: 4px;
+}
+
+.bin-order {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffd54f;
+}
+
+.bin-customer {
+  font-size: 10px;
+  color: rgba(255,255,255,.6);
+  margin-top: 2px;
+}
+
+.bin-items {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+
+  span {
+    font-size: 10px;
+    color: rgba(255,255,255,.5);
+    margin-top: 2px;
+  }
+}
+
+.bin-priority {
+  font-size: 10px;
+  font-weight: 700;
+  color: #ef9a9a;
+  margin-top: 4px;
+}
+
+.bin-free-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(76, 175, 80, .7);
+  letter-spacing: 2px;
+}
+
+.no-bins {
+  text-align: center;
+  padding: 40px;
+  color: rgba(255,255,255,.3);
+  font-size: 14px;
+}

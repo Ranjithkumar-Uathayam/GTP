@@ -1,0 +1,129 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Stations & Bins</h1>
+    <button mat-raised-button color="primary" (click)="showCreateForm = !showCreateForm">
+      <mat-icon>add</mat-icon> New Station
+    </button>
+  </div>
+
+  <!-- Create station form -->
+  <mat-card *ngIf="showCreateForm" class="create-form-card">
+    <mat-card-header><mat-card-title>New Station</mat-card-title></mat-card-header>
+    <mat-card-content [formGroup]="stationForm">
+      <div class="form-row three-col">
+        <mat-form-field appearance="outline">
+          <mat-label>Station Code *</mat-label>
+          <input matInput formControlName="stationCode" placeholder="STN-03">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Station Name *</mat-label>
+          <input matInput formControlName="stationName" placeholder="Station C">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Description</mat-label>
+          <input matInput formControlName="description">
+        </mat-form-field>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-raised-button color="primary" (click)="createStation()" [disabled]="stationForm.invalid || saving">
+        Create
+      </button>
+      <button mat-button (click)="showCreateForm=false">Cancel</button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Station cards + detail -->
+  <div class="station-layout">
+
+    <!-- Left: station list -->
+    <div class="station-cards">
+      <mat-card *ngFor="let s of stations"
+                class="station-card"
+                [class.selected]="selectedStation?.StationID === s.StationID"
+                (click)="selectStation(s.StationID)">
+        <div class="sc-header">
+          <mat-icon class="sc-icon">settings_input_component</mat-icon>
+          <div>
+            <div class="sc-code">{{ s.StationCode }}</div>
+            <div class="sc-name">{{ s.StationName }}</div>
+          </div>
+          <span class="sc-status" [class.active]="(s.ActiveBins || 0) > 0">
+            {{ (s.ActiveBins || 0) > 0 ? 'Active' : 'Idle' }}
+          </span>
+        </div>
+        <div class="sc-stats">
+          <span>🟡 {{ s.ActiveBins || 0 }} active</span>
+          <span>🟢 {{ s.FreeBins || 0 }} free</span>
+          <span>📦 {{ s.TotalBins || 0 }} total</span>
+        </div>
+        <mat-progress-bar mode="determinate" [value]="stationUtil(s)"
+                          [color]="stationUtil(s) > 80 ? 'warn' : 'primary'"
+                          style="margin-top:8px">
+        </mat-progress-bar>
+      </mat-card>
+    </div>
+
+    <!-- Right: station detail with bin grid -->
+    <div class="station-detail" *ngIf="selectedStation">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>
+            {{ selectedStation.StationCode }} — {{ selectedStation.StationName }}
+          </mat-card-title>
+          <mat-card-subtitle>{{ selectedStation.Description }}</mat-card-subtitle>
+          <span class="spacer"></span>
+          <button mat-stroked-button (click)="showAddBin = !showAddBin">
+            <mat-icon>add</mat-icon> Add Bin
+          </button>
+        </mat-card-header>
+
+        <!-- Add bin form -->
+        <mat-card-content *ngIf="showAddBin" class="add-bin-form">
+          <div [formGroup]="binForm" class="form-row four-col">
+            <mat-form-field appearance="outline">
+              <mat-label>Bin Code *</mat-label>
+              <input matInput formControlName="binCode">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Row</mat-label>
+              <input matInput type="number" formControlName="binRow">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Column</mat-label>
+              <input matInput type="number" formControlName="binColumn">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Light Color</mat-label>
+              <input matInput formControlName="lightColor">
+            </mat-form-field>
+          </div>
+          <button mat-raised-button color="primary" (click)="addBin()" [disabled]="binForm.invalid || saving">
+            Add Bin
+          </button>
+          <button mat-button (click)="showAddBin=false">Cancel</button>
+        </mat-card-content>
+
+        <mat-divider></mat-divider>
+
+        <!-- Bin grid -->
+        <mat-card-content>
+          <div class="bin-grid" [style.grid-template-columns]="'repeat(2, 1fr)'">
+            <div *ngFor="let bin of selectedStation.bins || []"
+                 class="bin-cell" [class]="getBinClass(bin)">
+              <div class="bin-light" [class.on]="!!bin.CurrentOrderID"></div>
+              <div class="bin-code">{{ bin.BinCode }}</div>
+              <div class="bin-pos">R{{ bin.BinRow }}C{{ bin.BinColumn }}</div>
+              <ng-container *ngIf="bin.CurrentOrderID">
+                <div class="bin-order">{{ bin.OrderNumber }}</div>
+              </ng-container>
+              <ng-container *ngIf="!bin.CurrentOrderID">
+                <div class="bin-free-label">FREE</div>
+              </ng-container>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+</div>

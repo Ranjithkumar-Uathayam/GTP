@@ -1,0 +1,528 @@
+// ════════════════════════════════════════════════════════════
+// Shell
+// ════════════════════════════════════════════════════════════
+.ptl-shell {
+  height: calc(100vh - 64px);
+  display: flex;
+  flex-direction: column;
+  background: #0d1117;
+  color: #e0e0e0;
+  overflow: hidden;
+
+  &.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    height: 100vh;
+  }
+}
+
+// ── Shared top bar ─────────────────────────────────────────
+.shell-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  background: #0f3460;
+  border-bottom: 2px solid #e94560;
+  flex-shrink: 0;
+}
+
+.bar-logo         { color: #ffd54f; font-size: 24px; width: 24px; height: 24px; }
+.bar-title        { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: .4px; }
+.bar-subtitle     { font-size: 12px; color: rgba(255,255,255,.4); }
+.bar-sep          { color: rgba(255,255,255,.28); font-size: 16px; }
+.bar-station      { font-size: 13px; font-weight: 700; color: #ffd54f; letter-spacing: .8px; }
+.bar-station-name { font-size: 12px; color: rgba(255,255,255,.45); }
+.bar-order        { font-size: 14px; font-weight: 700; color: #69f0ae; letter-spacing: 1px; }
+.bar-customer     { font-size: 12px; color: rgba(255,255,255,.42); }
+.bar-spacer       { flex: 1; }
+.back-btn         { color: rgba(255,255,255,.7); }
+
+// ── Shared step content wrapper ────────────────────────────
+.step-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 36px 32px;
+}
+
+
+// ════════════════════════════════════════════════════════════
+// STEP 1 — Station selection
+// ════════════════════════════════════════════════════════════
+.step-station {
+  background: radial-gradient(ellipse at 50% 0%, rgba(105,240,174,.04) 0%, transparent 65%);
+}
+
+.loading-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  gap: 16px;
+  color: rgba(255,255,255,.35);
+  font-size: 13px;
+}
+
+.station-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+// ── Station card ───────────────────────────────────────────
+.station-card {
+  position: relative;
+  background: #161b22;
+  border: 1.5px solid rgba(255,255,255,.1);
+  border-radius: 20px;
+  padding: 24px 22px 18px;
+  cursor: pointer;
+  transition: transform .2s, box-shadow .2s, border-color .2s;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(105,240,174,.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  &:hover:not(.scard-inactive) {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  }
+
+  &.scard-available {
+    border-color: rgba(105,240,174,.35);
+    &:hover { border-color: #69f0ae; box-shadow: 0 12px 40px rgba(105,240,174,.15); }
+  }
+
+  &.scard-full {
+    border-color: rgba(255,167,38,.25);
+    &:hover { border-color: rgba(255,167,38,.5); }
+  }
+
+  &.scard-inactive {
+    opacity: .45;
+    cursor: not-allowed;
+  }
+}
+
+// LED status dot
+.scard-led {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+
+  &.led-green {
+    background: #69f0ae;
+    box-shadow: 0 0 8px #69f0ae, 0 0 16px rgba(105,240,174,.4);
+    animation: ledPulse 2s ease-in-out infinite;
+  }
+  &.led-amber {
+    background: #ffa726;
+    box-shadow: 0 0 8px #ffa726;
+  }
+  &.led-gray {
+    background: rgba(255,255,255,.2);
+  }
+}
+
+@keyframes ledPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .5; }
+}
+
+.scard-code {
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: .5px;
+  margin-bottom: 2px;
+  margin-right: 18px;
+}
+
+.scard-name {
+  font-size: 13px;
+  color: rgba(255,255,255,.5);
+  margin-bottom: 20px;
+}
+
+// Occupancy bar
+.scard-occ-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.scard-occ-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.scard-occ-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #69f0ae, #43a047);
+  border-radius: 3px;
+  transition: width .5s cubic-bezier(.4,0,.2,1);
+
+  &.occ-warn { background: linear-gradient(90deg, #ffa726, #f57c00); }
+}
+
+.scard-occ-pct {
+  font-size: 11px;
+  color: rgba(255,255,255,.35);
+  white-space: nowrap;
+}
+
+// Stat row
+.scard-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.sstat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sstat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.amber { background: #ffa726; }
+  &.green { background: #69f0ae; }
+  &.gray  { background: rgba(255,255,255,.25); }
+}
+
+.sstat-val  { font-size: 15px; font-weight: 700; color: #e0e0e0; }
+.sstat-lbl  { font-size: 11px; color: rgba(255,255,255,.38); }
+
+// CTA footer
+.scard-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0 0;
+  border-top: 1px solid rgba(255,255,255,.07);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #69f0ae;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+  &.cta-disabled { color: rgba(255,255,255,.2); }
+}
+
+.scard-available .scard-cta {
+  color: #69f0ae;
+}
+
+.scard-full .scard-cta {
+  color: #ffa726;
+}
+
+
+// ════════════════════════════════════════════════════════════
+// STEP 2 — Scan screen
+// ════════════════════════════════════════════════════════════
+.scan-layout {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 28px;
+  padding: 48px 24px 32px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(105,240,174,.04) 0%, transparent 65%);
+}
+
+// Station badge at top of scan card
+.station-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,213,79,.1);
+  border: 1px solid rgba(255,213,79,.25);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffd54f;
+  margin-bottom: 20px;
+  letter-spacing: .5px;
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  .badge-free { color: #69f0ae; font-weight: 700; }
+}
+
+// ── Scan card ──────────────────────────────────────────────
+.scan-card {
+  background: #161b22;
+  border: 1px solid rgba(105,240,174,.18);
+  border-radius: 24px;
+  padding: 32px 32px 28px;
+  width: 420px;
+  flex-shrink: 0;
+  text-align: center;
+  box-shadow: 0 12px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(105,240,174,.06);
+}
+
+.scan-icon-ring {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+
+  mat-icon {
+    font-size: 42px;
+    width: 42px;
+    height: 42px;
+    color: #69f0ae;
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.scan-ring-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(105,240,174,.35);
+  animation: ringPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes ringPulse {
+  0%, 100% { transform: scale(1);    opacity: .5; }
+  50%       { transform: scale(1.25); opacity: .1; }
+}
+
+.scan-heading { font-size: 20px; font-weight: 700; color: #e8e8e8; margin: 0 0 8px; }
+.scan-sub     { font-size: 13px; color: rgba(255,255,255,.38); margin: 0 0 24px; line-height: 1.6; }
+
+.scan-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.scan-field {
+  width: 100%;
+
+  ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
+  ::ng-deep .mdc-text-field { background: rgba(255,255,255,.05); border-radius: 10px !important; }
+  ::ng-deep .mdc-floating-label { color: rgba(255,255,255,.45) !important; }
+  ::ng-deep input { color: #e0e0e0 !important; font-size: 15px !important; }
+  ::ng-deep .mdc-notched-outline__leading,
+  ::ng-deep .mdc-notched-outline__notch,
+  ::ng-deep .mdc-notched-outline__trailing { border-color: rgba(105,240,174,.25) !important; }
+  ::ng-deep .mdc-text-field--focused .mdc-notched-outline__leading,
+  ::ng-deep .mdc-text-field--focused .mdc-notched-outline__notch,
+  ::ng-deep .mdc-text-field--focused .mdc-notched-outline__trailing {
+    border-color: #69f0ae !important;
+    border-width: 2px !important;
+  }
+  ::ng-deep mat-icon { color: rgba(105,240,174,.6); }
+}
+
+.scan-error-msg {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #ef9a9a;
+  background: rgba(244,67,54,.08);
+  border: 1px solid rgba(244,67,54,.22);
+  border-radius: 8px;
+  padding: 9px 12px;
+  animation: errShake .3s ease-out;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
+}
+
+@keyframes errShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-5px); }
+  40%, 80% { transform: translateX(5px); }
+}
+
+.go-btn {
+  height: 50px;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.5px !important;
+  border-radius: 12px !important;
+  background: #43a047 !important;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+
+  &:not([disabled]):hover { background: #388e3c !important; }
+}
+
+.go-spinner { flex-shrink: 0; }
+
+.qr-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 16px;
+  font-size: 11px;
+  color: rgba(255,255,255,.22);
+
+  mat-icon { font-size: 14px; width: 14px; height: 14px; }
+  code { font-size: 10px; background: rgba(255,255,255,.06); padding: 2px 6px; border-radius: 4px; letter-spacing: 0; }
+}
+
+// ── Side lists ─────────────────────────────────────────────
+.side-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 340px;
+  flex-shrink: 0;
+}
+
+.list-panel {
+  background: #161b22;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #90caf9;
+  background: rgba(255,255,255,.035);
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  mat-icon { font-size: 15px; width: 15px; height: 15px; }
+
+  &.amber-header { color: #ffd54f; }
+}
+
+.list-rows { padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .15s;
+  border-left: 3px solid transparent;
+
+  &:hover { background: rgba(255,255,255,.07); }
+  &.row-urgent { border-left-color: #ef9a9a; }
+  &.row-high   { border-left-color: #ffd54f; }
+}
+
+.row-icon { font-size: 20px; width: 20px; height: 20px; &.amber { color: #ffd54f; } }
+.row-priority { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+
+.row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e0e0e0; }
+  span   { font-size: 11px; color: rgba(255,255,255,.42); margin-top: 1px; }
+}
+
+.row-bar { width: 48px; flex-shrink: 0; }
+
+.row-chevron {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: rgba(255,255,255,.22);
+  flex-shrink: 0;
+}
+
+.empty-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 16px;
+  color: rgba(255,255,255,.2);
+  mat-icon { font-size: 32px; width: 32px; height: 32px; }
+  span { font-size: 13px; }
+}
+
+
+// ════════════════════════════════════════════════════════════
+// STEP 3 — Board screen
+// ════════════════════════════════════════════════════════════
+.step-trail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 20px;
+  background: rgba(255,255,255,.03);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.trail-done {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(105,240,174,.6);
+  font-weight: 600;
+  letter-spacing: .5px;
+  mat-icon { font-size: 13px; width: 13px; height: 13px; }
+}
+
+.trail-active {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #69f0ae;
+  font-weight: 700;
+  letter-spacing: .5px;
+  mat-icon { font-size: 13px; width: 13px; height: 13px; }
+}
+
+.trail-sep {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  color: rgba(255,255,255,.18);
+}
+
+app-ptl-board {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}

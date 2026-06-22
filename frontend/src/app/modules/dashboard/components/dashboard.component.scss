@@ -1,0 +1,85 @@
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  mat-icon { font-size: 40px; width: 40px; height: 40px; }
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+mat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.station-row {
+  margin-bottom: 16px;
+}
+
+.station-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+
+  .station-name { color: var(--text-secondary); font-size: 13px; }
+}
+
+.station-bins {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.bin-count {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+
+  &.active { background: #fff8e1; color: #f57f17; }
+  &.free   { background: #e8f5e9; color: #2e7d32; }
+}
+
+.station-bar { height: 6px; border-radius: 3px; }
+
+.recent-table { width: 100%; font-size: 13px; }
+
+a { text-decoration: none; color: var(--primary); }
+
+.low-stock-card { margin-bottom: 16px; }
+
+.low-stock-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.low-stock-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+
+  span:nth-child(2) { flex: 1; color: var(--text-secondary); }
+}
+
+.qty-badge {
+  background: #fce4ec;
+  color: #c62828;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+}

@@ -1,0 +1,157 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <button mat-stroked-button (click)="load()">
+      <mat-icon>refresh</mat-icon> Refresh
+    </button>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="card-grid" *ngIf="summary">
+    <mat-card class="stat-card">
+      <div class="stat-row">
+        <mat-icon style="color:#3f51b5">assignment</mat-icon>
+        <div>
+          <div class="stat-value">{{ summary.orderCounts['Pending'] || 0 }}</div>
+          <div class="stat-label">Pending Orders</div>
+        </div>
+      </div>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <div class="stat-row">
+        <mat-icon style="color:#ff9800">play_circle</mat-icon>
+        <div>
+          <div class="stat-value">{{ summary.activeSessions }}</div>
+          <div class="stat-label">Active Sessions</div>
+        </div>
+      </div>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <div class="stat-row">
+        <mat-icon style="color:#4caf50">check_circle</mat-icon>
+        <div>
+          <div class="stat-value">{{ summary.orderCounts['Completed'] || 0 }}</div>
+          <div class="stat-label">Completed</div>
+        </div>
+      </div>
+    </mat-card>
+
+    <mat-card class="stat-card">
+      <div class="stat-row">
+        <mat-icon style="color:#9c27b0">inventory_2</mat-icon>
+        <div>
+          <div class="stat-value">{{ summary.lowStockItems.length }}</div>
+          <div class="stat-label">Low Stock Alerts</div>
+        </div>
+      </div>
+    </mat-card>
+  </div>
+
+  <div class="two-col">
+    <!-- Station Status -->
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>settings_input_component</mat-icon> Station Status
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="station-row" *ngFor="let s of stations">
+          <div class="station-info">
+            <strong>{{ s.StationCode }}</strong>
+            <span class="station-name">{{ s.StationName }}</span>
+          </div>
+          <div class="station-bins">
+            <span class="bin-count active">{{ s.ActiveBins }} active</span>
+            <span class="bin-count free">{{ s.FreeBins }} free</span>
+          </div>
+          <mat-progress-bar
+            mode="determinate"
+            [value]="stationUtil(s)"
+            [color]="stationUtil(s) > 80 ? 'warn' : 'primary'"
+            class="station-bar">
+          </mat-progress-bar>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <a mat-button routerLink="/put-to-light" color="primary">
+          Open Operator View →
+        </a>
+      </mat-card-actions>
+    </mat-card>
+
+    <!-- Recent Orders -->
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>history</mat-icon> Recent Orders
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <table mat-table [dataSource]="summary?.recentOrders || []" class="recent-table">
+          <ng-container matColumnDef="OrderNumber">
+            <th mat-header-cell *matHeaderCellDef>Order</th>
+            <td mat-cell *matCellDef="let o">
+              <a [routerLink]="['/orders', o.OrderID]">{{ o.OrderNumber }}</a>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="CustomerName">
+            <th mat-header-cell *matHeaderCellDef>Customer</th>
+            <td mat-cell *matCellDef="let o">{{ o.CustomerName || '—' }}</td>
+          </ng-container>
+
+          <ng-container matColumnDef="Status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let o">
+              <span class="status-badge" [class]="o.Status">{{ o.Status }}</span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="Progress">
+            <th mat-header-cell *matHeaderCellDef>Progress</th>
+            <td mat-cell *matCellDef="let o">
+              <mat-progress-bar mode="determinate" [value]="progress(o)" style="width:80px"></mat-progress-bar>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="CreatedAt">
+            <th mat-header-cell *matHeaderCellDef>Created</th>
+            <td mat-cell *matCellDef="let o">{{ o.CreatedAt | date:'short' }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="recentCols"></tr>
+          <tr mat-row *matRowDef="let row; columns: recentCols;"></tr>
+        </table>
+      </mat-card-content>
+      <mat-card-actions>
+        <a mat-button routerLink="/orders" color="primary">View All Orders →</a>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+
+  <!-- Low Stock -->
+  <mat-card *ngIf="summary && summary.lowStockItems.length" class="low-stock-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon style="color:#f44336">warning</mat-icon> Low Stock Alerts
+      </mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="low-stock-list">
+        <div class="low-stock-item" *ngFor="let item of summary.lowStockItems">
+          <strong>{{ item.ItemCode }}</strong>
+          <span>{{ item.ItemName }}</span>
+          <span class="qty-badge">{{ item.FreeQty }} / {{ item.MinQty }} min</span>
+        </div>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <a mat-button routerLink="/inventory" [queryParams]="{lowStock: true}" color="warn">
+        View Inventory →
+      </a>
+    </mat-card-actions>
+  </mat-card>
+</div>

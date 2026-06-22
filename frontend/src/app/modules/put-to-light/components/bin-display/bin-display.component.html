@@ -1,0 +1,35 @@
+<div class="bin-grid" [ngStyle]="gridStyle()">
+  <ng-container *ngFor="let row of grid">
+    <div *ngFor="let bin of row"
+         class="bin-cell"
+         [class]="getBinClass(bin)"
+         (click)="onBinClick(bin)">
+
+      <!-- Light indicator -->
+      <div class="bin-light" [class.on]="!!bin.CurrentOrderID" [class.off]="!bin.CurrentOrderID"></div>
+
+      <!-- Bin code -->
+      <div class="bin-code">{{ bin.BinCode }}</div>
+
+      <!-- If occupied: show order info -->
+      <ng-container *ngIf="bin.CurrentOrderID; else emptyBin">
+        <div class="bin-order">{{ bin.OrderNumber }}</div>
+        <div class="bin-customer" *ngIf="bin.CustomerName">{{ bin.CustomerName }}</div>
+        <div class="bin-items">
+          <mat-progress-bar mode="determinate" [value]="binProgress(bin)" style="width:80px;height:4px;margin-top:4px">
+          </mat-progress-bar>
+          <span>{{ bin.PutItems || 0 }}/{{ bin.TotalItems }}</span>
+        </div>
+        <div class="bin-priority" *ngIf="bin.Priority === 3">🔴 URGENT</div>
+      </ng-container>
+
+      <ng-template #emptyBin>
+        <div class="bin-free-label">FREE</div>
+      </ng-template>
+    </div>
+  </ng-container>
+</div>
+
+<div *ngIf="!bins.length" class="no-bins">
+  No bins configured for this station
+</div>

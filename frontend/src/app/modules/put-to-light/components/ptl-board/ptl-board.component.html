@@ -1,0 +1,189 @@
+<!-- ══════════════════════════════════════════════════════════
+     No order selected
+═══════════════════════════════════════════════════════════ -->
+<div class="board-idle" *ngIf="!order">
+  <div class="idle-icon-wrap">
+    <div class="idle-pulse"></div>
+    <mat-icon class="idle-icon">lightbulb_outline</mat-icon>
+  </div>
+  <p class="idle-title">No Active Order</p>
+  <p class="idle-sub">Start a pending order from the queue to begin put-to-light guidance</p>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     PTL Board
+═══════════════════════════════════════════════════════════ -->
+<div class="board" *ngIf="order">
+
+  <!-- ── Scanner Status Strip ─────────────────────────────── -->
+  <div class="scan-strip" [ngClass]="'scan-strip-' + scanState">
+    <span class="scan-dot" [class.pulse]="scanState === 'ready'"></span>
+    <mat-icon class="scan-icon-sm">{{ scanIcon() }}</mat-icon>
+    <span class="scan-text">
+      <ng-container *ngIf="scanState === 'ready'">SCANNER READY &nbsp;·&nbsp; Format: <code>GTP|ORDER|ITEM|QTY</code></ng-container>
+      <ng-container *ngIf="scanState !== 'ready'">{{ scanMessage }}</ng-container>
+    </span>
+    <mat-spinner *ngIf="scanState === 'processing'" diameter="14" class="scan-spinner"></mat-spinner>
+  </div>
+
+
+  <!-- ── Top: ORDER CARD ──────────────────────────────────── -->
+  <div class="order-section">
+    <div class="order-card" [class.confirm-flash]="confirmAnim">
+      <!-- Priority badge -->
+      <span class="priority-badge" [ngClass]="priorityClass()">{{ priorityLabel() }}</span>
+
+      <div class="order-main">
+        <div class="order-number">{{ order.OrderNumber }}</div>
+        <div class="order-customer">{{ order.CustomerName || 'No customer' }}</div>
+      </div>
+
+      <div class="order-meta">
+        <div class="meta-item">
+          <span class="meta-label">Bin</span>
+          <span class="meta-val">{{ order.BinCode || '—' }}</span>
+        </div>
+        <div class="meta-sep"></div>
+        <div class="meta-item">
+          <span class="meta-label">Items</span>
+          <span class="meta-val">{{ doneCount() }} / {{ order.TotalItems }}</span>
+        </div>
+        <div class="meta-sep"></div>
+        <div class="meta-item">
+          <span class="meta-label">Progress</span>
+          <span class="meta-val progress-pct">{{ progress() }}%</span>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="order-progress-track">
+        <div class="order-progress-fill" [style.width.%]="progress()"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── Middle: ANIMATED SVG CONNECTOR ───────────────────── -->
+  <div class="connector-section" *ngIf="activeBin && !allDone()">
+    <svg class="connector-svg"
+         [attr.viewBox]="viewBox"
+         preserveAspectRatio="none">
+
+      <!-- Background track -->
+      <path [attr.d]="pathD" class="connector-track" />
+
+      <!-- Animated flow line -->
+      <path [attr.d]="pathD" class="connector-flow" />
+
+      <!-- Same path with ID for animateMotion mpath reference -->
+      <path [attr.id]="'flowPath' + order.OrderID" [attr.d]="pathD" fill="none"/>
+
+      <!-- Traveling dot -->
+      <circle r="3" fill="#69f0ae" opacity="0.9">
+        <animateMotion dur="1.2s" repeatCount="indefinite" rotate="auto">
+          <mpath [attr.href]="'#flowPath' + order.OrderID"/>
+        </animateMotion>
+      </circle>
+
+    </svg>
+
+    <!-- Downward arrow indicator -->
+    <div class="connector-arrow"
+         [style.left.%]="((activeIndex + 0.5) / bins.length) * 100">
+    </div>
+  </div>
+
+  <!-- All done: minimal beam -->
+  <div class="connector-section done-connector" *ngIf="allDone()">
+    <div class="done-beam"></div>
+  </div>
+
+
+  <!-- ── Bottom: BINS ROW ──────────────────────────────────── -->
+  <div class="bins-section">
+    <div
+      *ngFor="let bin of bins; let i = index"
+      class="bin-card"
+      [class.bin-active]="bin.status === 'active'"
+      [class.bin-done]="bin.status === 'done'"
+      [class.bin-pending]="bin.status === 'pending'"
+      [class.bin-skipped]="bin.status === 'skipped'"
+      [class.confirm-flash]="confirmAnim && bin.status === 'active'">
+
+      <!-- Light indicator dot -->
+      <div class="bin-light-dot" [class.on]="bin.status === 'active'"></div>
+
+      <!-- Bin seq number -->
+      <div class="bin-seq">#{{ bin.sortSeq }}</div>
+
+      <!-- ── ACTIVE bin ── -->
+      <ng-container *ngIf="bin.status === 'active'">
+        <div class="bin-tag active-tag">
+          <mat-icon style="font-size:10px;width:10px;height:10px">lightbulb</mat-icon>
+          PUT NOW
+        </div>
+        <div class="bin-item-code">{{ bin.itemCode }}</div>
+        <div class="bin-item-name">{{ bin.itemName }}</div>
+        <div class="bin-qty-block">
+          <div class="bin-qty-value">{{ bin.remaining }}</div>
+          <div class="bin-qty-label">{{ bin.uom }}</div>
+        </div>
+
+        <!-- Scan hint pill -->
+        <div class="scan-hint">
+          <mat-icon>qr_code_2</mat-icon>
+          <span>Scan or press button</span>
+        </div>
+
+        <button
+          mat-raised-button
+          class="confirm-btn"
+          [disabled]="confirming"
+          (click)="onConfirm.emit()">
+          <mat-icon>check</mat-icon>
+          {{ confirming ? 'Processing…' : 'CONFIRM PUT' }}
+        </button>
+      </ng-container>
+
+      <!-- ── DONE bin ── -->
+      <ng-container *ngIf="bin.status === 'done'">
+        <div class="bin-done-overlay">
+          <mat-icon>check_circle</mat-icon>
+          <span>DONE</span>
+        </div>
+        <div class="done-code">{{ bin.itemCode }}</div>
+        <div class="bin-qty-done">{{ bin.putQty }} {{ bin.uom }}</div>
+      </ng-container>
+
+      <!-- ── PENDING bin ── -->
+      <ng-container *ngIf="bin.status === 'pending'">
+        <div class="pending-code">{{ bin.itemCode }}</div>
+        <div class="pending-name">{{ bin.itemName }}</div>
+        <div class="bin-qty-pending">{{ bin.remaining }} {{ bin.uom }}</div>
+      </ng-container>
+
+    </div>
+  </div>
+
+
+  <!-- ── All items placed ──────────────────────────────────── -->
+  <div class="all-done-panel" *ngIf="allDone()">
+    <div class="done-badge">
+      <mat-icon>check_circle</mat-icon>
+      <span>ALL ITEMS PLACED</span>
+    </div>
+    <button mat-raised-button color="primary" class="complete-btn" (click)="onComplete.emit()">
+      <mat-icon>done_all</mat-icon> Complete Order
+    </button>
+    <button mat-stroked-button color="warn" (click)="onCancel.emit()">Cancel</button>
+  </div>
+
+  <!-- ── Bottom action strip ───────────────────────────────── -->
+  <div class="board-actions" *ngIf="!allDone()">
+    <button mat-stroked-button color="warn" (click)="onCancel.emit()">
+      <mat-icon>cancel</mat-icon> Cancel Order
+    </button>
+  </div>
+
+</div>

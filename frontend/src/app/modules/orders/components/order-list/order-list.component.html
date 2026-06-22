@@ -1,0 +1,132 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Orders</h1>
+    <button mat-raised-button color="primary" (click)="openCreate()">
+      <mat-icon>add</mat-icon> New Order
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <mat-card class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search orders</mat-label>
+        <input matInput [formControl]="searchCtrl" placeholder="Order# or customer">
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" style="width:160px">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="statusFilter" (ngModelChange)="page=1; load()">
+          <mat-option value="">All</mat-option>
+          <mat-option value="Pending">Pending</mat-option>
+          <mat-option value="InProgress">In Progress</mat-option>
+          <mat-option value="Completed">Completed</mat-option>
+          <mat-option value="Cancelled">Cancelled</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <span class="spacer"></span>
+      <span class="total-label">{{ total }} orders</span>
+    </div>
+  </mat-card>
+
+  <!-- Table -->
+  <mat-card>
+    <mat-card-content>
+      <table mat-table [dataSource]="orders" class="orders-table">
+
+        <ng-container matColumnDef="OrderNumber">
+          <th mat-header-cell *matHeaderCellDef>Order #</th>
+          <td mat-cell *matCellDef="let o">
+            <a [routerLink]="['/orders', o.OrderID]" class="order-link">{{ o.OrderNumber }}</a>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="CustomerName">
+          <th mat-header-cell *matHeaderCellDef>Customer</th>
+          <td mat-cell *matCellDef="let o">{{ o.CustomerName || '—' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="Priority">
+          <th mat-header-cell *matHeaderCellDef>Priority</th>
+          <td mat-cell *matCellDef="let o">
+            <span class="priority-chip" [class.urgent]="o.Priority===3" [class.high]="o.Priority===2">
+              {{ priorityLabel(o.Priority) }}
+            </span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="Status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let o">
+            <span class="status-badge" [class]="o.Status">{{ o.Status }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="Progress">
+          <th mat-header-cell *matHeaderCellDef>Progress</th>
+          <td mat-cell *matCellDef="let o">
+            <div class="progress-cell">
+              <mat-progress-bar mode="determinate" [value]="progress(o)"></mat-progress-bar>
+              <span class="progress-label">{{ o.PutItems }}/{{ o.TotalItems }}</span>
+            </div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="Bin">
+          <th mat-header-cell *matHeaderCellDef>Bin</th>
+          <td mat-cell *matCellDef="let o">
+            <span *ngIf="o.BinCode" class="bin-tag">
+              <mat-icon style="font-size:14px;vertical-align:middle">lightbulb</mat-icon>
+              {{ o.StationCode }} / {{ o.BinCode }}
+            </span>
+            <span *ngIf="!o.BinCode" class="text-muted">—</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="CreatedAt">
+          <th mat-header-cell *matHeaderCellDef>Created</th>
+          <td mat-cell *matCellDef="let o">{{ o.CreatedAt | date:'MMM d, HH:mm' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="Actions">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let o">
+            <button mat-icon-button color="primary"
+                    *ngIf="o.Status==='Pending'"
+                    (click)="startOrder(o, $event)"
+                    matTooltip="Start Order">
+              <mat-icon>play_arrow</mat-icon>
+            </button>
+            <button mat-icon-button color="warn"
+                    *ngIf="o.Status==='Pending' || o.Status==='InProgress'"
+                    (click)="cancelOrder(o, $event)"
+                    matTooltip="Cancel">
+              <mat-icon>cancel</mat-icon>
+            </button>
+            <a mat-icon-button [routerLink]="['/orders', o.OrderID]" matTooltip="View Details">
+              <mat-icon>open_in_new</mat-icon>
+            </a>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="columns; sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns;"
+            [routerLink]="['/orders', row.OrderID]"
+            class="clickable-row">
+        </tr>
+        <tr *matNoDataRow>
+          <td [attr.colspan]="columns.length" class="empty-row">No orders found</td>
+        </tr>
+      </table>
+
+      <mat-paginator
+        [length]="total"
+        [pageSize]="limit"
+        [pageSizeOptions]="[10,20,50]"
+        (page)="onPageChange($event)">
+      </mat-paginator>
+    </mat-card-content>
+  </mat-card>
+</div>
