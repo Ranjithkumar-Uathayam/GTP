@@ -2,6 +2,7 @@ import {
   Component, OnInit, OnDestroy, ViewChild, ViewChildren, QueryList,
   ElementRef, ChangeDetectorRef, HostListener,
 } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../../../core/services/api.service';
@@ -59,9 +60,21 @@ export class PickingShellComponent implements OnInit, OnDestroy {
     private notify: NotificationService,
     private ws:     WebsocketService,
     private cdr:    ChangeDetectorRef,
+    private route:  ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    // Auto-load headerId from query param (e.g. navigated from status page)
+    const qHeaderId  = this.route.snapshot.queryParamMap.get('headerId');
+    const qSessionId = this.route.snapshot.queryParamMap.get('sessionId');
+    if (qSessionId) {
+      this.picklistLoading = true;
+      this.resumeSession(Number(qSessionId));
+    } else if (qHeaderId) {
+      this.picklistInput = qHeaderId;
+      this.loadPicklist();
+    }
+
     this.ws.on('ITEM_PICKED').pipe(takeUntil(this.destroy$)).subscribe(() => {
       if (this.session) this.refreshSession();
     });

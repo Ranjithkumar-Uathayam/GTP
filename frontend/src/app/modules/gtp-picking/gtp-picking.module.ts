@@ -12,9 +12,10 @@ import { MatRippleModule } from '@angular/material/core';
 
 import { GtpPickingRoutingModule } from './gtp-picking-routing.module';
 import { PickingShellComponent } from './components/picking-shell/picking-shell.component';
+import { PicklistStatusComponent } from './components/picklist-status/picklist-status.component';
 
 @NgModule({
-  declarations: [PickingShellComponent],
+  declarations: [PickingShellComponent, PicklistStatusComponent],
   imports: [
     CommonModule,
     FormsModule,

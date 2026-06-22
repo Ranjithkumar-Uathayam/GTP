@@ -106,6 +106,16 @@ export class ApiService {
     return this.http.post<any>(`${this.base}/picking/session/${sessionId}/scan`, { barcode, cardCode });
   }
 
+  getPicklistSessions(): Observable<{ success: boolean; data: any[] }> {
+    return this.http.get<any>(`${this.base}/picking/sessions`);
+  }
+
+  retryPartyDelivery(sessionId: number, cardCode: string): Observable<{ success: boolean; data: any }> {
+    return this.http.post<any>(
+      `${this.base}/picking/session/${sessionId}/deliveries/${encodeURIComponent(cardCode)}/retry`, {}
+    );
+  }
+
   // ─── Stations ─────────────────────────────────────────────
   getStations(): Observable<{ success: boolean; data: Station[] }> {
     return this.http.get<any>(`${this.base}/stations`);

@@ -22,12 +22,9 @@ export class AppComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   navItems: NavItem[] = [
-    { path: '/dashboard',    label: 'Dashboard',     icon: 'dashboard' },
-    { path: '/put-to-light', label: 'Put-to-Light',  icon: 'lightbulb' },
-    { path: '/picking',      label: 'GTP Picking',   icon: 'inventory' },
-    { path: '/orders',       label: 'Orders',        icon: 'assignment' },
-    { path: '/inventory',    label: 'Inventory',     icon: 'inventory_2' },
-    { path: '/stations',     label: 'Stations',      icon: 'settings_input_component' },
+    { path: '/dashboard',        label: 'Dashboard',   icon: 'dashboard'  },
+    { path: '/picking',          label: 'GTP Picking', icon: 'inventory'  },
+    { path: '/picking/status',   label: 'Pick Status', icon: 'list_alt'   },
   ];
 
   constructor(
@@ -55,7 +52,8 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   isActive(path: string): boolean {
-    return this.currentPath.startsWith(path);
+    const current = this.currentPath.split('?')[0];
+    return current === path;
   }
 
   ngOnDestroy(): void {
