@@ -43,7 +43,8 @@ async function listSessions() {
                 SELECT TOP 1 O2.CardName
                 FROM   WMS.dbo.Tran_TransDetails TD2
                 INNER  JOIN BBLive.dbo.ORDR O2
-                       ON O2.DocEntry = TD2.DocEntry AND O2.CardCode = PP.CardCode
+                       ON O2.DocEntry = TD2.DocEntry
+                      AND O2.CardCode COLLATE DATABASE_DEFAULT = PP.CardCode
                 WHERE  TD2.HeaderId = S.HeaderId
             )                 AS CardName,
             DL.DeliveryStatus,

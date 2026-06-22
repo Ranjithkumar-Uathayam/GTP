@@ -43,31 +43,36 @@ async function buildDeliveryPayload(sessionId, cardCode) {
                 ISNULL((
                     SELECT TOP 1 LineNum
                     FROM   BBLive.dbo.RDR1
-                    WHERE  DocEntry = TD.DocEntry AND ItemCode = PP.ItemCode
+                    WHERE  DocEntry = TD.DocEntry
+                      AND  ItemCode COLLATE DATABASE_DEFAULT = PP.ItemCode
                     ORDER  BY LineNum
                 ), 0)                   AS BaseLine,
                 ISNULL((
                     SELECT TOP 1 Price
                     FROM   BBLive.dbo.RDR1
-                    WHERE  DocEntry = TD.DocEntry AND ItemCode = PP.ItemCode
+                    WHERE  DocEntry = TD.DocEntry
+                      AND  ItemCode COLLATE DATABASE_DEFAULT = PP.ItemCode
                     ORDER  BY LineNum
                 ), 0)                   AS UnitPrice,
                 ISNULL((
                     SELECT TOP 1 DiscPrcnt
                     FROM   BBLive.dbo.RDR1
-                    WHERE  DocEntry = TD.DocEntry AND ItemCode = PP.ItemCode
+                    WHERE  DocEntry = TD.DocEntry
+                      AND  ItemCode COLLATE DATABASE_DEFAULT = PP.ItemCode
                     ORDER  BY LineNum
                 ), 0)                   AS DiscountPercent,
                 ISNULL((
                     SELECT TOP 1 TaxCode
                     FROM   BBLive.dbo.RDR1
-                    WHERE  DocEntry = TD.DocEntry AND ItemCode = PP.ItemCode
+                    WHERE  DocEntry = TD.DocEntry
+                      AND  ItemCode COLLATE DATABASE_DEFAULT = PP.ItemCode
                     ORDER  BY LineNum
                 ), '')                  AS TaxCode,
                 ISNULL((
                     SELECT TOP 1 WhsCode
                     FROM   BBLive.dbo.RDR1
-                    WHERE  DocEntry = TD.DocEntry AND ItemCode = PP.ItemCode
+                    WHERE  DocEntry = TD.DocEntry
+                      AND  ItemCode COLLATE DATABASE_DEFAULT = PP.ItemCode
                     ORDER  BY LineNum
                 ), '01')                AS WarehouseCode
             FROM GTP_PickProgress PP
@@ -75,9 +80,10 @@ async function buildDeliveryPayload(sessionId, cardCode) {
                 SELECT TOP 1 TD2.DocEntry
                 FROM   WMS.dbo.Tran_TransDetails TD2
                 INNER  JOIN BBLive.dbo.ORDR O2
-                       ON O2.DocEntry = TD2.DocEntry AND O2.CardCode = PP.CardCode
-                WHERE  TD2.HeaderId   = PP.HeaderId
-                   AND TD2.ProductCode = PP.ItemCode
+                       ON O2.DocEntry = TD2.DocEntry
+                      AND O2.CardCode COLLATE DATABASE_DEFAULT = PP.CardCode
+                WHERE  TD2.HeaderId    = PP.HeaderId
+                  AND  TD2.ProductCode COLLATE DATABASE_DEFAULT = PP.ItemCode
                 ORDER  BY TD2.DocEntry
             ) TD
             WHERE PP.SessionID = @sid
