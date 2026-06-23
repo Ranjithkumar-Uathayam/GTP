@@ -11,6 +11,10 @@ const routes: Routes = [
     path: 'picking',
     loadChildren: () => import('./modules/gtp-picking/gtp-picking.module').then(m => m.GtpPickingModule),
   },
+  {
+    path: 'adam',
+    loadChildren: () => import('./modules/adam-dashboard/adam-dashboard.module').then(m => m.AdamDashboardModule),
+  },
   { path: '**', redirectTo: 'dashboard' },
 ];
 

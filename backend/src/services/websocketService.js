@@ -3,9 +3,21 @@ const WebSocket = require('ws');
 let wss = null;
 
 function init(server) {
-    wss = new WebSocket.Server({ server, path: '/ws' });
+    // noServer: true — ws does NOT touch the HTTP upgrade event at all.
+    // We manually dispatch only /ws upgrades here; Socket.IO gets everything else.
+    wss = new WebSocket.Server({ noServer: true });
 
-    wss.on('connection', (ws, req) => {
+    server.on('upgrade', (req, socket, head) => {
+        const { pathname } = new URL(req.url, 'http://localhost');
+        if (pathname === '/ws') {
+            wss.handleUpgrade(req, socket, head, (ws) => {
+                wss.emit('connection', ws, req);
+            });
+            // All other paths (e.g. /socket.io/) are left for Socket.IO to handle.
+        }
+    });
+
+    wss.on('connection', (ws) => {
         console.log(`🔌 WS client connected (${wss.clients.size} total)`);
         ws.send(JSON.stringify({ type: 'connected', message: 'GTP Station WebSocket ready' }));
 

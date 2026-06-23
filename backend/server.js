@@ -4,14 +4,21 @@ const express  = require('express');
 const cors     = require('cors');
 const helmet   = require('helmet');
 const morgan   = require('morgan');
+const { Server } = require('socket.io');
 
 const routes          = require('./src/routes');
 const { initDb }      = require('./src/config/db');
 const wsService       = require('./src/services/websocketService');
+const adamService     = require('./src/services/Adam6052Service');
+const adamSocket      = require('./src/socket/adam.socket');
 const errorHandler    = require('./src/middleware/errorHandler');
 
 const app    = express();
 const server = http.createServer(app);
+
+const io = new Server(server, {
+    cors: { origin: '*', methods: ['GET', 'POST'] },
+});
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: '*' }));
@@ -31,9 +38,14 @@ async function start() {
         wsService.init(server);
         console.log('✅ WebSocket attached to HTTP server');
 
+        adamSocket.init(io);
+        await adamService.start();   // diagnostics + Modbus TCP connect
+        console.log('✅ ADAM-6052 Modbus TCP service started');
+
         server.listen(PORT, () => {
             console.log(`🚀 GTP Station API  → http://localhost:${PORT}/api`);
             console.log(`🔌 WebSocket        → ws://localhost:${PORT}`);
+            console.log(`📡 ADAM Socket.IO   → http://localhost:${PORT} (namespace /adam)`);
         });
     } catch (err) {
         console.error('❌ Startup failed:', err.message);

@@ -22,9 +22,10 @@ export class AppComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   navItems: NavItem[] = [
-    { path: '/dashboard',        label: 'Dashboard',   icon: 'dashboard'  },
-    { path: '/picking',          label: 'GTP Picking', icon: 'inventory'  },
-    { path: '/picking/status',   label: 'Pick Status', icon: 'list_alt'   },
+    { path: '/dashboard',        label: 'Dashboard',   icon: 'dashboard'              },
+    { path: '/picking',          label: 'GTP Picking', icon: 'inventory'              },
+    { path: '/picking/status',   label: 'Pick Status', icon: 'list_alt'               },
+    { path: '/adam',             label: 'ADAM-6052',   icon: 'settings_input_component' },
   ];
 
   constructor(
