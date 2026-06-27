@@ -206,6 +206,29 @@ CREATE INDEX IX_ScanLog_IDValue ON GTP_ScanLog (SessionID, IDValue);
 GO
 
 -- ============================================================
+-- Station Light Status (ADAM-6052 DO channel tracking)
+-- ============================================================
+
+CREATE TABLE GTP_StationLightStatus (
+    StatusID     INT           IDENTITY(1,1) PRIMARY KEY,
+    SessionID    INT           NOT NULL,
+    StationId    NVARCHAR(50)  NOT NULL,
+    PicklistId   NVARCHAR(50)  NULL,          -- HeaderId of the picklist
+    CardCode     NVARCHAR(50)  NOT NULL,
+    PartyId      INT           NOT NULL,       -- 1..4
+    Channel      INT           NOT NULL,       -- ADAM DO channel 0..7
+    ChannelName  NVARCHAR(10)  NOT NULL,       -- D0..D7
+    Status       NVARCHAR(5)   NOT NULL DEFAULT 'OFF',  -- ON | OFF
+    UpdatedTime  DATETIME      NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT UQ_StationLight UNIQUE (SessionID, CardCode)
+);
+GO
+CREATE INDEX IX_StationLight_Session ON GTP_StationLightStatus (SessionID);
+GO
+CREATE INDEX IX_StationLight_Station ON GTP_StationLightStatus (StationId, SessionID);
+GO
+
+-- ============================================================
 -- SAP B1 Delivery Integration Log
 -- Created automatically by deliveryService on first trigger.
 -- ============================================================

@@ -34,12 +34,32 @@ class Adam6052Service extends EventEmitter {
 
     this._connected      = false;
     this._destroyed      = false;
-    this._busy           = false;
+    this._busy           = false;   // shared lock: poll + writes both use this
     this._reconnAttempts = 0;
     this._reconnTimer    = null;
     this._pollTimer      = null;
     this._lastError      = null;
     this._lastStatus     = this._emptyStatus();
+  }
+
+  // ─── Mutex for Modbus operations ─────────────────────────────────────────────
+  // Modbus TCP is serial — only one request at a time on a single client.
+  // Both _poll() and writeSingleOutput() share the _busy flag as a mutex.
+  async _withLock(fn) {
+    const deadline = Date.now() + TIMEOUT_MS;
+    while (this._busy) {
+      if (Date.now() > deadline) {
+        logger.warn('[ADAM] Lock wait timeout — forcing proceed');
+        break;
+      }
+      await new Promise(r => setTimeout(r, 25));
+    }
+    this._busy = true;
+    try {
+      return await fn();
+    } finally {
+      this._busy = false;
+    }
   }
 
   _emptyStatus() {
@@ -188,38 +208,36 @@ class Adam6052Service extends EventEmitter {
   }
 
   async _poll() {
-    if (!this._connected || this._busy) return;
-    this._busy = true;
+    if (!this._connected || this._busy) return;   // skip if write holding the lock
     try {
-      const diResp = await this._client.readDiscreteInputs(DI_START, DI_COUNT);
-      const doResp = await this._client.readCoils(DO_START, DO_COUNT);
-
-      const status = {
-        connected: true,
-        ts:        new Date().toISOString(),
-        di:        Array.from(diResp.data.slice(0, DI_COUNT)),
-        do:        Array.from(doResp.data.slice(0, DO_COUNT)),
-        diCount:   DI_COUNT,
-        doCount:   DO_COUNT,
-        ip:        ADAM_IP,
-        port:      ADAM_PORT,
-        unitId:    ADAM_UNIT_ID,
-        error:     null,
-      };
-
-      this._lastStatus = status;
-      this.emit('status', status);
+      await this._withLock(async () => {
+        const diResp = await this._client.readDiscreteInputs(DI_START, DI_COUNT);
+        const doResp = await this._client.readCoils(DO_START, DO_COUNT);
+        const status = {
+          connected: true,
+          ts:        new Date().toISOString(),
+          di:        Array.from(diResp.data.slice(0, DI_COUNT)),
+          do:        Array.from(doResp.data.slice(0, DO_COUNT)),
+          diCount:   DI_COUNT,
+          doCount:   DO_COUNT,
+          ip:        ADAM_IP,
+          port:      ADAM_PORT,
+          unitId:    ADAM_UNIT_ID,
+          error:     null,
+        };
+        this._lastStatus = status;
+        this.emit('status', status);
+      });
     } catch (err) {
       logger.error(`[ADAM] Poll error: ${err.message}`);
       this._connected  = false;
+      this._busy       = false;   // ensure lock released on poll failure
       this._lastError  = err.message;
       this._lastStatus = { ...this._lastStatus, connected: false, error: err.message };
       this.emit('status', this._lastStatus);
       this._stopPolling();
       try { if (this._client.isOpen) await this._client.close(); } catch (_) {}
       this._scheduleReconnect();
-    } finally {
-      this._busy = false;
     }
   }
 
@@ -258,55 +276,53 @@ class Adam6052Service extends EventEmitter {
 
   // ─── Write operations ─────────────────────────────────────────────────────────
 
-  /** FC05 — write single DO channel (0–7) */
+  /** FC05 — write single DO channel (0–7). Serialised through _withLock(). */
   async writeSingleOutput(channel, state) {
     this._assertConnected();
     if (channel < 0 || channel >= DO_COUNT) {
       throw new RangeError(`Channel ${channel} out of range 0–${DO_COUNT - 1}`);
     }
-
-    const address = DO_START + channel;
-    const value   = Boolean(state);
-
-    logger.info(`[ADAM] FC05  ch${channel} → ${value ? 'ON ' : 'OFF'}  (addr 0x${address.toString(16).toUpperCase().padStart(4,'0')})`);
-    await this._client.writeCoil(address, value);
-
-    if (this._lastStatus.do) {
-      this._lastStatus.do[channel] = value;
-      this._lastStatus.ts = new Date().toISOString();
-    }
-
-    return {
-      channel,
-      state:   value,
-      address: `0x${address.toString(16).toUpperCase().padStart(4,'0')}`,
-      fc:      'FC05',
-      ts:      new Date().toISOString(),
-    };
+    return this._withLock(async () => {
+      this._assertConnected();   // re-check after waiting for lock
+      const address = DO_START + channel;
+      const value   = Boolean(state);
+      logger.info(`[ADAM] FC05  ch${channel} → ${value ? 'ON ' : 'OFF'}  (addr 0x${address.toString(16).toUpperCase().padStart(4,'0')})`);
+      await this._client.writeCoil(address, value);
+      if (this._lastStatus.do) {
+        this._lastStatus.do[channel] = value;
+        this._lastStatus.ts = new Date().toISOString();
+      }
+      return {
+        channel,
+        state:   value,
+        address: `0x${address.toString(16).toUpperCase().padStart(4,'0')}`,
+        fc:      'FC05',
+        ts:      new Date().toISOString(),
+      };
+    });
   }
 
-  /** FC15 — write all 8 DO channels from bitmask (0–255) */
+  /** FC15 — write all 8 DO channels from bitmask (0–255). Serialised through _withLock(). */
   async writeAllOutputs(value) {
     this._assertConnected();
-
-    const mask   = (value >>> 0) & 0xFF;
-    const states = Array.from({ length: DO_COUNT }, (_, i) => Boolean(mask & (1 << i)));
-
-    logger.info(`[ADAM] FC15  all DO → 0x${mask.toString(16).toUpperCase().padStart(2,'0')}  [${states.map(v => v ? '1' : '0').join(' ')}]`);
-    await this._client.writeCoils(DO_START, states);
-
-    if (this._lastStatus.do) {
-      this._lastStatus.do = [...states];
-      this._lastStatus.ts = new Date().toISOString();
-    }
-
-    return {
-      value:  mask,
-      hex:    `0x${mask.toString(16).toUpperCase().padStart(2,'0')}`,
-      states,
-      fc:     'FC15',
-      ts:     new Date().toISOString(),
-    };
+    return this._withLock(async () => {
+      this._assertConnected();
+      const mask   = (value >>> 0) & 0xFF;
+      const states = Array.from({ length: DO_COUNT }, (_, i) => Boolean(mask & (1 << i)));
+      logger.info(`[ADAM] FC15  all DO → 0x${mask.toString(16).toUpperCase().padStart(2,'0')}  [${states.map(v => v ? '1' : '0').join(' ')}]`);
+      await this._client.writeCoils(DO_START, states);
+      if (this._lastStatus.do) {
+        this._lastStatus.do = [...states];
+        this._lastStatus.ts = new Date().toISOString();
+      }
+      return {
+        value:  mask,
+        hex:    `0x${mask.toString(16).toUpperCase().padStart(2,'0')}`,
+        states,
+        fc:     'FC15',
+        ts:     new Date().toISOString(),
+      };
+    });
   }
 
   _assertConnected() {

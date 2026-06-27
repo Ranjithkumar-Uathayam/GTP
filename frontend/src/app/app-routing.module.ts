@@ -15,6 +15,10 @@ const routes: Routes = [
     path: 'adam',
     loadChildren: () => import('./modules/adam-dashboard/adam-dashboard.module').then(m => m.AdamDashboardModule),
   },
+  {
+    path: 'lights',
+    loadChildren: () => import('./modules/station-lights/station-lights.module').then(m => m.StationLightsModule),
+  },
   { path: '**', redirectTo: 'dashboard' },
 ];
 

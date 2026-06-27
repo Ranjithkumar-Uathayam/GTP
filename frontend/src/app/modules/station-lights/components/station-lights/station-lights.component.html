@@ -1,0 +1,134 @@
+<div class="lights-page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <mat-icon class="header-icon">lightbulb</mat-icon>
+      <div>
+        <h1 class="page-title">Station Lights</h1>
+        <p class="page-sub">ADAM-6052 DO channel status per party</p>
+      </div>
+    </div>
+
+    <mat-form-field appearance="outline" class="station-select">
+      <mat-label>Station</mat-label>
+      <mat-select [(ngModel)]="selectedStation">
+        <mat-option *ngFor="let s of stations" [value]="s.stationId">
+          {{ stationLabel(s.stationId) }} ({{ s.stationId }})
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <ng-container *ngIf="activePanel as panel">
+
+    <!-- Session banner -->
+    <div class="session-banner" *ngIf="panel.sessionId; else noSession">
+      <div class="banner-item">
+        <span class="banner-label">Session</span>
+        <span class="banner-val">#{{ panel.sessionId }}</span>
+      </div>
+      <div class="banner-item" *ngIf="panel.picklistId">
+        <span class="banner-label">Picklist</span>
+        <span class="banner-val">{{ panel.picklistId }}</span>
+      </div>
+      <div class="banner-item">
+        <span class="banner-label">Active lights</span>
+        <span class="banner-val lit">{{ onLitCount(panel) }} / 4</span>
+      </div>
+      <button mat-stroked-button color="warn" class="reset-btn"
+              [disabled]="resetting"
+              (click)="resetLights()"
+              matTooltip="Turn off all lights for this session">
+        <mat-icon>power_settings_new</mat-icon>
+        {{ resetting ? 'Resetting…' : 'Reset All' }}
+      </button>
+    </div>
+    <ng-template #noSession>
+      <div class="no-session">No active session for {{ stationLabel(panel.stationId) }}</div>
+    </ng-template>
+
+    <!-- Party grid -->
+    <div class="party-grid">
+      <div class="party-card"
+           *ngFor="let slot of panel.slots; trackBy: trackByParty"
+           [class.is-on]="slot.status === 'ON'"
+           [class.is-off]="slot.status === 'OFF'"
+           [class.is-idle]="slot.status === 'IDLE'"
+           [class.is-completed]="slot.partyStatus === 'COMPLETED'">
+
+        <div class="card-glow"></div>
+
+        <!-- Header row -->
+        <div class="card-header-row">
+          <div class="party-badge">Party {{ slot.partyId }}</div>
+          <div class="channel-chip">
+            <mat-icon class="chip-icon">cable</mat-icon>
+            {{ slot.channelName }}
+          </div>
+        </div>
+
+        <!-- Light bulb -->
+        <div class="light-bulb">
+          <mat-icon class="bulb-icon">
+            {{ slot.status === 'ON' ? 'lightbulb' : 'lightbulb_outline' }}
+          </mat-icon>
+        </div>
+
+        <!-- Status pill -->
+        <div class="status-pill"
+             [class.pill-on]="slot.partyStatus === 'ACTIVE'"
+             [class.pill-done]="slot.partyStatus === 'COMPLETED'"
+             [class.pill-off]="slot.partyStatus === 'OFF'"
+             [class.pill-idle]="slot.partyStatus === 'IDLE'">
+          {{ slot.partyStatus === 'ACTIVE' ? 'ON' :
+             slot.partyStatus === 'COMPLETED' ? 'DONE' :
+             slot.partyStatus === 'OFF' ? 'OFF' : 'IDLE' }}
+        </div>
+
+        <!-- CardCode -->
+        <div class="card-code" *ngIf="slot.cardCode; else noParty">{{ slot.cardCode }}</div>
+        <ng-template #noParty>
+          <div class="card-code muted">— unassigned —</div>
+        </ng-template>
+
+        <!-- Qty progress (only when assigned) -->
+        <ng-container *ngIf="slot.cardCode">
+          <div class="qty-row">
+            <div class="qty-block">
+              <span class="qty-label">Total</span>
+              <span class="qty-val">{{ slot.totalQty }}</span>
+            </div>
+            <div class="qty-block">
+              <span class="qty-label">Picked</span>
+              <span class="qty-val picked">{{ slot.pickedQty }}</span>
+            </div>
+            <div class="qty-block">
+              <span class="qty-label">Left</span>
+              <span class="qty-val" [class.remaining]="slot.remainingQty > 0">{{ slot.remainingQty }}</span>
+            </div>
+          </div>
+
+          <!-- Progress bar -->
+          <div class="qty-bar-wrap" *ngIf="slot.totalQty > 0">
+            <div class="qty-bar-track">
+              <div class="qty-bar-fill"
+                   [style.width.%]="(slot.pickedQty / slot.totalQty) * 100"
+                   [class.bar-done]="slot.remainingQty === 0">
+              </div>
+            </div>
+            <span class="qty-pct">{{ ((slot.pickedQty / slot.totalQty) * 100) | number:'1.0-0' }}%</span>
+          </div>
+        </ng-container>
+
+        <!-- Timestamp -->
+        <div class="updated-time" *ngIf="slot.updatedTime">
+          {{ slot.updatedTime | date:'HH:mm:ss' }}
+        </div>
+
+      </div>
+    </div>
+
+  </ng-container>
+
+</div>

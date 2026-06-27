@@ -1,6 +1,7 @@
 const { getPool, sql } = require('../config/db');
-const ws       = require('./websocketService');
+const ws     = require('./websocketService');
 const delivery = require('./deliveryService');
+const lights = require('./lightControlService');
 
 // ── Parse barcode: ITEMCODE|ST|IDVALUE|GROUP|UNIQUENUM|QTY ────
 function parseBarcode(raw) {
@@ -58,7 +59,7 @@ async function loadPicklistData(headerId) {
 }
 
 // ── Start a new picking session ────────────────────────────────
-async function startSession(headerId, operatorId) {
+async function startSession(headerId, operatorId, stationId = 'STN-01') {
     const pool = await getPool();
 
     // Deactivate any existing InProgress session for this picklist
@@ -98,6 +99,18 @@ async function startSession(headerId, operatorId) {
                         (SessionID, HeaderId, CardCode, ItemCode, RequiredQty)
                     VALUES (@sid, @hid, @cc, @ic, @rqty)`);
     }
+
+    // Collect unique parties in seeding order for light-channel assignment
+    const seenParties = [];
+    const seenCodes   = new Set();
+    for (const r of rows) {
+        if (!seenCodes.has(r.CardCode)) {
+            seenCodes.add(r.CardCode);
+            seenParties.push({ cardCode: r.CardCode });
+        }
+    }
+    lights.activatePicklistLights(sessionId, stationId, headerId, seenParties)
+        .catch(err => console.error('[LIGHTS] activatePicklistLights error:', err.message));
 
     ws.broadcast('PICKLIST_STARTED', { sessionId, headerId });
     return getSession(sessionId);
@@ -303,14 +316,22 @@ async function processScan(sessionId, barcode, cardCode) {
                     SET Status='Completed', CompletedAt=GETDATE()
                     WHERE SessionID=@sid`);
         ws.broadcast('PICKLIST_COMPLETED', { sessionId, headerId: session.HeaderId });
-        // Last party also completed — trigger SAP delivery (fire-and-forget)
+        // All parties done — turn OFF all channels
+        lights.resetStationLights(sessionId)
+            .catch(err => console.error('[LIGHTS] resetStationLights error:', err.message));
         delivery.triggerPartyDelivery(sessionId, cardCode)
             .catch(err => console.error('SAP delivery trigger error:', err.message));
     } else if (partyDone) {
         ws.broadcast('PARTY_COMPLETED', { sessionId, cardCode });
-        // Party completed — trigger SAP delivery (fire-and-forget)
+        // This party is done — turn OFF its channel only
+        lights.handlePartyComplete(sessionId, cardCode)
+            .catch(err => console.error('[LIGHTS] handlePartyComplete error:', err.message));
         delivery.triggerPartyDelivery(sessionId, cardCode)
             .catch(err => console.error('SAP delivery trigger error:', err.message));
+    } else {
+        // Spotlight: turn ON only this party's channel, all others OFF
+        lights.setActivePartyLight(sessionId, cardCode)
+            .catch(err => console.error('[LIGHTS] setActivePartyLight error:', err.message));
     }
 
     ws.broadcast('ITEM_PICKED', {

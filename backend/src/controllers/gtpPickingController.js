@@ -45,9 +45,13 @@ async function loadPicklist(req, res, next) {
 
 async function startSession(req, res, next) {
     try {
-        const { headerId, operatorId } = req.body;
+        const { headerId, operatorId, stationId } = req.body;
         if (!headerId) return res.status(400).json({ success: false, message: 'headerId required' });
-        const session = await svc.startSession(headerId, operatorId ? parseInt(operatorId) : null);
+        const session = await svc.startSession(
+            headerId,
+            operatorId ? parseInt(operatorId) : null,
+            stationId  || 'STN-01',
+        );
         res.json({ success: true, data: session });
     } catch (err) { next(err); }
 }

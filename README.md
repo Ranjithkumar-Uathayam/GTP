@@ -84,7 +84,7 @@ PORT=3000
 ```bash
 cd frontend
 npm install
-npm start            # starts on http://localhost:4200
+npm start            # starts on http://localhost:4500
 ```
 
 The Angular dev server proxies `/api` → `http://localhost:3000/api` via `proxy.conf.json`.
