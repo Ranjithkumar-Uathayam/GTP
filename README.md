@@ -87,7 +87,7 @@ npm install
 npm start            # starts on http://localhost:4500
 ```
 
-The Angular dev server proxies `/api` → `http://localhost:3000/api` via `proxy.conf.json`.
+The Angular dev server proxies `/api` → `http://10.0.10.211:4501/api` via `proxy.conf.json`.
 
 ---
 

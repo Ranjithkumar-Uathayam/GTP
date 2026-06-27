@@ -80,7 +80,7 @@ export class AdamService implements OnDestroy {
   }
 
   private _connectSocket(): void {
-    const baseUrl = environment.socketUrl || 'http://localhost:3000';
+    const baseUrl = environment.socketUrl || 'http://10.0.10.211:4501';
     this.socket = io(baseUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
