@@ -7,7 +7,7 @@ const { exec }     = require('child_process');
 const logger       = require('../utils/logger');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-const ADAM_IP      = (process.env.ADAM_IP      || '10.0.13.20').trim();
+const ADAM_IP      = (process.env.ADAM_IP      || '10.0.210.87').trim();
 const ADAM_PORT    = parseInt((process.env.ADAM_PORT    || '502').trim(),  10);
 const ADAM_UNIT_ID = parseInt((process.env.ADAM_UNIT_ID || '1').trim(),   10);
 const POLL_MS      = parseInt((process.env.ADAM_POLL_MS || '1000').trim(), 10);
@@ -101,7 +101,7 @@ class Adam6052Service extends EventEmitter {
     } else {
       logger.warn(`[ADAM] ⚠  Port ${ADAM_PORT} not responding at startup`);
       logger.warn('[ADAM]    Will connect with exponential backoff (2 s → 4 s → … → 60 s)');
-      logger.warn('[ADAM]    Windows test: Test-NetConnection 10.0.13.20 -Port 502');
+      logger.warn('[ADAM]    Windows test: Test-NetConnection 10.0.210.87 -Port 502');
     }
     logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -153,7 +153,7 @@ class Adam6052Service extends EventEmitter {
     if (code === 'ECONNREFUSED' || code === '-4078') {
       logger.error(`[ADAM] ❌ ECONNREFUSED  ${ADAM_IP}:${ADAM_PORT}`);
       logger.error('[ADAM]    Modbus TCP server is not listening on this port.');
-      logger.error('[ADAM]    Check: Test-NetConnection 10.0.13.20 -Port 502');
+      logger.error('[ADAM]    Check: Test-NetConnection 10.0.210.87 -Port 502');
     } else if (code === 'ETIMEDOUT' || code === '-4039') {
       logger.error(`[ADAM] ❌ ETIMEDOUT  ${ADAM_IP}:${ADAM_PORT}`);
       logger.error('[ADAM]    No response — verify IP, subnet, cable, power.');

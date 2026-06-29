@@ -27,7 +27,7 @@ function getConnection(req, res) {
     connected:         adam.isConnected,
     reconnectAttempts: adam.reconnectAttempts,
     lastError:         adam.lastError,
-    ip:                process.env.ADAM_IP      || '10.0.13.20',
+    ip:                process.env.ADAM_IP      || '10.0.210.87',
     port:              process.env.ADAM_PORT    || '502',
     unitId:            process.env.ADAM_UNIT_ID || '1',
     protocol:          'Modbus TCP',

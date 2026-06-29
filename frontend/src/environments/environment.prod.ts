@@ -4,3 +4,9 @@ export const environment = {
   wsUrl:     `ws://${window.location.host}/ws`,
   socketUrl: `http://${window.location.host}`,
 };
+// export const environment = {
+//   production: true,
+//   apiUrl:    'http://localhost:4501/api',
+//   wsUrl:     `ws://${window.location.host}/ws`,
+//   socketUrl: `http://${window.location.host}`,
+// };
