@@ -182,7 +182,13 @@ async function getSession(sessionId) {
     const parties = Object.values(partyMap).map(p => {
         const items       = p.items;
         const totalReq    = items.reduce((s, i) => s + i.requiredQty, 0);
-        const totalPicked = items.reduce((s, i) => s + i.pickedQty,  0);
+        // PickedQty is stored once per (CardCode, ItemCode) in GTP_PickProgress, but an
+        // item can appear as multiple order-line rows (one per DocEntry) when the same
+        // item spans several orders for this party — dedupe by itemCode so its picked
+        // qty isn't added once per duplicate order line.
+        const uniquePicked = new Map();
+        items.forEach(i => uniquePicked.set(i.itemCode, i.pickedQty));
+        const totalPicked = [...uniquePicked.values()].reduce((s, v) => s + v, 0);
         const allDone     = items.every(i => i.status === 'Completed');
         const anyActive   = items.some(i  => i.status === 'InProgress');
         return {

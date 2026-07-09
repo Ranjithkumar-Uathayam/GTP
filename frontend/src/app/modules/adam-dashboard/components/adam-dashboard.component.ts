@@ -72,8 +72,12 @@ export class AdamDashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.adam.status$.pipe(takeUntil(this.destroy$)).subscribe((s) => {
-      this.status = s;
-      this._applyDo(s.do);
+      // When disconnected or error, zero all channel values so the display
+      // never shows stale hardware state from before the disconnect.
+      this.status = s.connected
+        ? s
+        : { ...s, di: Array(12).fill(false), do: Array(8).fill(false) };
+      this._applyDo(this.status.do);
       this.lastResponse = s.error
         ? `Error: ${s.error}`
         : s.ts

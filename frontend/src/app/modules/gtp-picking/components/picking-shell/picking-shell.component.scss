@@ -144,14 +144,25 @@ $orange:    #ff9800;
       background: $blue;
       color: #fff;
       height: 44px;
+      width: 100%;
       font-weight: 600;
       letter-spacing: .5px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
       border-radius: 8px;
       &:disabled { opacity: .5; }
+
+      // MDC button wraps children inside .mdc-button__label — flex must go there
+      ::ng-deep .mdc-button__label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        mat-icon, .mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+          line-height: 20px;
+        }
+      }
     }
   }
 }
@@ -431,6 +442,77 @@ $orange:    #ff9800;
   &.strip-invalid    { border-color: rgba($red,.45);  background: rgba($red,.08);   .strip-dot { background: $red; } .strip-icon, .strip-msg { color: $red; } }
   &.strip-duplicate  { border-color: rgba($amber,.5); background: rgba($amber,.08); .strip-dot { background: $amber; } .strip-icon, .strip-msg { color: $amber; } }
   &.strip-error      { border-color: rgba($red,.5);   background: rgba($red,.10);   .strip-dot { background: $red; } .strip-icon, .strip-msg { color: $red; } }
+}
+
+// ─── Scan error popup overlay ───────────────────────────────────
+.scan-error-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+
+  .sep-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(3px);
+  }
+
+  .sep-card {
+    position: relative;
+    z-index: 1;
+    background: $surface;
+    border-radius: 20px;
+    padding: 44px 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    max-width: 580px;
+    width: 90%;
+    animation: sepPop .22s cubic-bezier(.34, 1.56, .64, 1) both;
+  }
+
+  .sep-icon {
+    font-size: 72px;
+    width: 72px;
+    height: 72px;
+  }
+
+  .sep-msg {
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.45;
+    margin: 0;
+    letter-spacing: .2px;
+  }
+
+  &.popup-error, &.popup-invalid {
+    .sep-card {
+      border: 2px solid rgba($red, .55);
+      box-shadow: 0 0 60px rgba($red, .2), 0 8px 48px rgba(0, 0, 0, .6);
+    }
+    .sep-icon { color: $red; }
+    .sep-msg  { color: $red; }
+  }
+
+  &.popup-duplicate {
+    .sep-card {
+      border: 2px solid rgba($amber, .55);
+      box-shadow: 0 0 60px rgba($amber, .2), 0 8px 48px rgba(0, 0, 0, .6);
+    }
+    .sep-icon { color: $amber; }
+    .sep-msg  { color: $amber; }
+  }
+}
+
+@keyframes sepPop {
+  from { transform: scale(.82); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 
 // ─── Scan field ─────────────────────────────────────────────────
@@ -1264,8 +1346,15 @@ $orange:    #ff9800;
           border-color: $blue !important;
         }
       }
-      .mat-mdc-input-element  { color: $text; caret-color: $blue; }
-      .mdc-floating-label     { color: $muted; }
+      // Force input text white — MDC cascade overrides without !important
+      .mat-mdc-input-element,
+      .mdc-text-field__input {
+        color: $text !important;
+        -webkit-text-fill-color: $text !important;
+        caret-color: $blue !important;
+      }
+      .mdc-text-field { background: transparent !important; }
+      .mdc-floating-label     { color: $muted !important; }
       .mat-mdc-form-field-icon-suffix .mat-icon { color: $muted; }
     }
 

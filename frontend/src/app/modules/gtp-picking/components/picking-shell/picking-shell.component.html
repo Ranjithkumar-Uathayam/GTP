@@ -325,4 +325,15 @@
     </div>
   </ng-container>
 
+  <!-- ── Scan Error Popup (centered overlay) ────────────────────── -->
+  <div class="scan-error-popup"
+       *ngIf="scanFeedback.state === 'error' || scanFeedback.state === 'duplicate' || scanFeedback.state === 'invalid'"
+       [ngClass]="'popup-' + scanFeedback.state">
+    <div class="sep-backdrop"></div>
+    <div class="sep-card">
+      <mat-icon class="sep-icon">{{ scanFeedbackIcon() }}</mat-icon>
+      <p class="sep-msg">{{ scanFeedback.message }}</p>
+    </div>
+  </div>
+
 </div>
