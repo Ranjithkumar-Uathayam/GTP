@@ -139,8 +139,7 @@
                 <span class="ptc-seq">Item {{ currentItemIndex() }}/{{ currentParty?.items?.length }}</span>
               </div>
 
-              <div class="ptc-itemcode">ItemCode: <strong>{{ currentItem.itemCode }}</strong></div>
-              <div class="ptc-itemname">{{ currentItem.itemName }}</div>
+              <div class="ptc-itemname"><strong>{{ currentItem.itemName }}</strong></div>
 
               <div class="ptc-progress">
                 <div class="ptc-prog-summary">
@@ -268,7 +267,7 @@
                [class.pis-done]="isItemDone(item)"
                [class.pis-active]="item.itemCode === currentItem?.itemCode && party.cardCode === currentParty?.cardCode">
             <mat-icon>{{ isItemDone(item) ? 'check_circle' : (item.itemCode === currentItem?.itemCode && party.cardCode === currentParty?.cardCode) ? 'adjust' : 'radio_button_unchecked' }}</mat-icon>
-            <span class="pis-code">{{ item.itemCode }}</span>
+            <span class="pis-name" [matTooltip]="item.itemName">{{ item.itemName }}</span>
             <span class="pis-qty">{{ item.pickedQty }}/{{ item.requiredQty }}</span>
           </div>
         </ng-container>

@@ -916,23 +916,15 @@ $orange:    #ff9800;
     }
   }
 
-  .ptc-itemcode {
-    font-size: 14px;
-    color: $muted;
-    margin-bottom: 4px;
-    strong {
-      font-size: 17px;
-      color: $text;
-      font-family: monospace;
-      letter-spacing: .5px;
-    }
-  }
-
   .ptc-itemname {
-    font-size: 13px;
+    font-size: 14px;
     color: $muted;
     min-height: 18px;
     margin-bottom: 12px;
+    strong {
+      font-size: 17px;
+      color: $text;
+    }
   }
 
   .ptc-progress {
@@ -1200,8 +1192,18 @@ $orange:    #ff9800;
       color: $amber;
     }
 
-    .pis-code { font-family: monospace; font-weight: 600; }
-    .pis-qty  { font-family: monospace; opacity: .7; }
+    .pis-name {
+      font-weight: 600;
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .pis-qty  { font-family: monospace; opacity: .7; flex-shrink: 0; }
+
+    @media (max-width: 600px) {
+      .pis-name { max-width: 90px; }
+    }
   }
 
   .pis-party-sep {
