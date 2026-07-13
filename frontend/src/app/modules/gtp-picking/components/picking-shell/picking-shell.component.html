@@ -172,13 +172,17 @@
                 </ng-template>
               </div>
 
-              <!-- Hidden scan input — always focusable -->
+              <!-- Hidden scan input — always focusable, scanner-only (see onScanKeydown) -->
               <input #itemScanInput class="ptl-scan-input"
                      [(ngModel)]="scanInput"
                      (keydown.enter)="processItemScan()"
+                     (keydown)="onScanKeydown($event)"
+                     (paste)="onScanPaste($event)"
+                     (blur)="onScanInputBlur()"
                      [disabled]="scanLoading"
                      placeholder="Scan barcode here…"
-                     autocomplete="off">
+                     autocomplete="off"
+                     inputmode="none">
             </div>
 
             <ng-template #partyAllDone>

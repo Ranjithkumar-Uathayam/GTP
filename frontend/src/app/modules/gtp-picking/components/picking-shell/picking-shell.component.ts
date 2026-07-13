@@ -52,6 +52,12 @@ export class PickingShellComponent implements OnInit, OnDestroy {
   scanLoading = false;
   scanFeedback: ScanFeedback = { state: 'ready', message: '' };
 
+  // A hardware barcode scanner is a keyboard-wedge device — the browser can't tell its
+  // keystrokes apart from a human's except by speed. Scanners emit characters only a few
+  // ms apart; no human can type that fast, so anything slower is treated as manual entry.
+  private lastScanKeyTime = 0;
+  private readonly SCAN_KEY_MAX_GAP_MS = 40;
+
   private scanTimer?: ReturnType<typeof setTimeout>;
   private destroy$ = new Subject<void>();
 
@@ -243,6 +249,33 @@ export class PickingShellComponent implements OnInit, OnDestroy {
   // ════════════════════════════════════════════════════════════
   // STEP 3 — Picking board: scan processing
   // ════════════════════════════════════════════════════════════
+
+  // Blocks manually-typed keystrokes; only a scanner's rapid-fire input passes through.
+  onScanKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') return; // (keydown.enter) handles submission separately
+
+    const now = Date.now();
+    const gap = now - this.lastScanKeyTime;
+    this.lastScanKeyTime = now;
+
+    if (this.scanInput.length > 0 && gap > this.SCAN_KEY_MAX_GAP_MS) {
+      event.preventDefault();
+      this.scanInput = '';
+    }
+  }
+
+  // Only a scanner should ever populate this field — block manual paste too.
+  onScanPaste(event: ClipboardEvent): void {
+    event.preventDefault();
+  }
+
+  // Keep the scan input permanently focused so the scanner can fire at any time.
+  onScanInputBlur(): void {
+    if (this.view === 'picking-board') {
+      setTimeout(() => this.itemScanInputRef?.nativeElement.focus(), 0);
+    }
+  }
+
   processItemScan(): void {
     const raw = this.scanInput.trim();
     if (!raw || this.scanLoading || !this.session) return;
