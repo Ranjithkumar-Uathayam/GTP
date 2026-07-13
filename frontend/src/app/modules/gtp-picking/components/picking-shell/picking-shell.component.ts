@@ -360,6 +360,14 @@ export class PickingShellComponent implements OnInit, OnDestroy {
     }
   }
 
+  itemDisplayLabel(item: PicklistItem): string {
+    const parts = [item.itemName];
+    if (item.color) parts.push(item.color);
+    if (item.size) parts.push(item.size);
+    if (item.itemGroupName?.toUpperCase() === 'SHIRT' && item.sleeve) parts.push(item.sleeve);
+    return parts.join(' - ');
+  }
+
   itemProgress(item: PicklistItem): number {
     if (!item.requiredQty) return 0;
     return Math.min(100, Math.round((item.pickedQty / item.requiredQty) * 100));

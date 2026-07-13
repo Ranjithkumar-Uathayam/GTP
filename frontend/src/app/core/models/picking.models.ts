@@ -19,6 +19,10 @@ export interface ScannedPart {
 export interface PicklistItem {
   itemCode:     string;
   itemName:     string;
+  itemGroupName:string;
+  size:         string;
+  sleeve:       string;
+  color:        string;
   docEntry:     number;
   orderQty:     number;
   requiredQty:  number;
