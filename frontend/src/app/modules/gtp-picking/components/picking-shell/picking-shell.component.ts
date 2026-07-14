@@ -53,10 +53,13 @@ export class PickingShellComponent implements OnInit, OnDestroy {
   scanFeedback: ScanFeedback = { state: 'ready', message: '' };
 
   // A hardware barcode scanner is a keyboard-wedge device — the browser can't tell its
-  // keystrokes apart from a human's except by speed. Scanners emit characters only a few
-  // ms apart; no human can type that fast, so anything slower is treated as manual entry.
-  private lastScanKeyTime = 0;
-  private readonly SCAN_KEY_MAX_GAP_MS = 40;
+  // keystrokes apart from a human's except by speed. Rather than gate every keystroke
+  // (which risks dropping characters if a scanner is briefly slower than expected), we
+  // only judge the whole burst: elapsed time from the first character to Enter should be
+  // far too short for a human to have typed it, given the barcode's length.
+  private scanBurstStart = 0;
+  private readonly SCAN_MS_PER_CHAR = 150;
+  private readonly SCAN_MIN_WINDOW_MS = 800;
 
   private scanTimer?: ReturnType<typeof setTimeout>;
   private destroy$ = new Subject<void>();
@@ -250,18 +253,12 @@ export class PickingShellComponent implements OnInit, OnDestroy {
   // STEP 3 — Picking board: scan processing
   // ════════════════════════════════════════════════════════════
 
-  // Blocks manually-typed keystrokes; only a scanner's rapid-fire input passes through.
+  // Marks when the current burst started; never blocks/clears a keystroke, so no
+  // character is ever dropped mid-scan. The actual scanner-vs-human check happens
+  // once, at submit time, in processItemScan().
   onScanKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter') return; // (keydown.enter) handles submission separately
-
-    const now = Date.now();
-    const gap = now - this.lastScanKeyTime;
-    this.lastScanKeyTime = now;
-
-    if (this.scanInput.length > 0 && gap > this.SCAN_KEY_MAX_GAP_MS) {
-      event.preventDefault();
-      this.scanInput = '';
-    }
+    if (this.scanInput.length === 0) this.scanBurstStart = Date.now();
   }
 
   // Only a scanner should ever populate this field — block manual paste too.
@@ -279,6 +276,18 @@ export class PickingShellComponent implements OnInit, OnDestroy {
   processItemScan(): void {
     const raw = this.scanInput.trim();
     if (!raw || this.scanLoading || !this.session) return;
+
+    // Reject the burst if it took far longer than a scanner ever would for this many
+    // characters — i.e. it was typed by hand. Generous budget so a slightly slow
+    // scanner is never mistaken for typing.
+    const elapsed     = Date.now() - this.scanBurstStart;
+    const allowedTime = Math.max(this.SCAN_MIN_WINDOW_MS, raw.length * this.SCAN_MS_PER_CHAR);
+    if (elapsed > allowedTime) {
+      this.scanInput = '';
+      this.setScanFeedback('invalid', 'Manual entry not allowed — use the scanner');
+      setTimeout(() => this.itemScanInputRef?.nativeElement.focus(), 50);
+      return;
+    }
 
     // Extract itemCode from barcode (format: ITEMCODE|ST|ID|GROUP|NUM|QTY)
     const itemCode = raw.split('|')[0];

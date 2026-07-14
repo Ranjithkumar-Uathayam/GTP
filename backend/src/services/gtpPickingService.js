@@ -133,8 +133,14 @@ async function startSession(headerId, operatorId, stationId = 'STN-01') {
             seenParties.push({ cardCode: r.CardCode });
         }
     }
-    lights.activatePicklistLights(sessionId, stationId, headerId, seenParties)
-        .catch(err => console.error('[LIGHTS] activatePicklistLights error:', err.message));
+    // Awaited so the party→channel mapping is fully persisted before the session is
+    // handed back — otherwise a fast first scan can race ahead of this write and fall
+    // through to _rebuildMapping()'s fallback path before the real mapping exists.
+    try {
+        await lights.activatePicklistLights(sessionId, stationId, headerId, seenParties);
+    } catch (err) {
+        console.error('[LIGHTS] activatePicklistLights error:', err.message);
+    }
 
     ws.broadcast('PICKLIST_STARTED', { sessionId, headerId });
     return getSession(sessionId);

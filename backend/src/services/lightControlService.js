@@ -90,11 +90,15 @@ async function _rebuildMapping(sessionId, cardCode) {
     const stationId = DEFAULT_STATION;
     const channels  = _channels(stationId);
 
-    // Get distinct parties in insertion order
+    // Get distinct parties in true customer/insertion order — ProgressID is an
+    // IDENTITY column seeded in the same order as activatePicklistLights' seenParties,
+    // so MIN(ProgressID) reproduces the original customer sequence. (Sorting by
+    // CardCode alphabetically here was the bug: it scrambled the D0/D1/D2/D3
+    // assignment away from customer arrival order whenever this fallback ran.)
     const partyRes = await pool.request()
       .input('sid', sql.Int, sessionId)
-      .query(`SELECT DISTINCT CardCode FROM GTP_PickProgress
-              WHERE SessionID=@sid ORDER BY CardCode`);
+      .query(`SELECT CardCode, MIN(ProgressID) AS FirstSeq FROM GTP_PickProgress
+              WHERE SessionID=@sid GROUP BY CardCode ORDER BY FirstSeq`);
     const parties = partyRes.recordset;
 
     const mapping = {};
