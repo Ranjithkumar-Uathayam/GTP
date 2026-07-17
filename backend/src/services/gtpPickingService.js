@@ -17,24 +17,6 @@ function parseBarcode(raw) {
     };
 }
 
-// ── Derive color word from OITM's full descriptive name ────────
-// e.g. fullName="MAGNUM WHITE FULL - 38", baseName="MAGNUM", sleeve="FULL" -> "WHITE"
-//      fullName="ALPS FULL - 44",         baseName="ALPS",   sleeve="FULL" -> ""
-function escapeRegex(str) {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-function deriveColor(fullName, baseName, sleeve) {
-    if (!fullName) return '';
-    let s = fullName.trim();
-    if (baseName) s = s.replace(new RegExp('^\\s*' + escapeRegex(baseName.trim()) + '\\s*', 'i'), '');
-    if (sleeve)   s = s.replace(new RegExp('\\b' + escapeRegex(sleeve.trim()) + '\\b', 'i'), '');
-    // What's left should just be the color word (e.g. "WHITE", "CREAM"). Sizes, SAP
-    // variant codes, and fused sleeve+size tokens (e.g. "H40", "LC10119", "(LC20021)")
-    // all contain digits, so only keep tokens that are purely alphabetic.
-    const words = s.split(/[\s-]+/).filter(w => /^[A-Za-z]+$/.test(w));
-    return words.join(' ');
-}
-
 // ── Load picklist data from WMS + BBLive ──────────────────────
 async function loadPicklistData(headerId) {
     const pool = await getPool();
@@ -51,13 +33,13 @@ async function loadPicklistData(headerId) {
                 T0.ProductCode,
                 T0.ProductName,
                 ISNULL(T0.OrderQty, 0) AS OrderQty,
-                ISNULL(T0.ReqQty,   0) AS ReqQty,
+                ISNULL(T0.ReqQty, 0) AS ReqQty,
                 T2.U_SalPriceCode,
                 D.CountofOrder,
-                T4.ItmsGrpNam                    AS ItemGroupName,
-                LTRIM(RTRIM(T3.U_SubGrp5))        AS ItemSize,
-                T3.U_Style                        AS ItemSleeve,
-                T3.ItemName                       AS ItemFullName
+                T4.ItmsGrpNam AS ItemGroupName,
+                LTRIM(RTRIM(T3.U_SubGrp5)) AS ItemSize,
+                T3.U_Style AS ItemSleeve,
+                LTRIM(RTRIM(T3.U_SubGrp6)) AS ItemColor
             FROM (
                 SELECT DISTINCT
                     HeaderId, DocEntry, ProductCode, ProductName, OrderQty, ReqQty
@@ -77,7 +59,7 @@ async function loadPicklistData(headerId) {
             ) AS D
             LEFT JOIN BBLive.dbo.OITM AS T3 ON T3.ItemCode = T0.ProductCode COLLATE DATABASE_DEFAULT
             LEFT JOIN BBLive.dbo.OITB AS T4 ON T4.ItmsGrpCod = T3.ItmsGrpCod
-            ORDER BY T0.DocEntry, T0.ProductCode
+            ORDER BY T0.DocEntry, T0.ProductCode;
         `);
     return result.recordset;
 }
@@ -202,7 +184,7 @@ async function getSession(sessionId) {
             itemGroupName:r.ItemGroupName || '',
             size:         r.ItemSize      || '',
             sleeve:       r.ItemSleeve    || '',
-            color:        deriveColor(r.ItemFullName, r.ProductName, r.ItemSleeve),
+            color:        r.ItemColor    || '',
             docEntry:     r.DocEntry,
             orderQty:     Number(r.OrderQty),
             requiredQty:  Number(r.ReqQty),
