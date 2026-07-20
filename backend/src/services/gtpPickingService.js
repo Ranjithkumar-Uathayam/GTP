@@ -42,11 +42,11 @@ async function loadPicklistData(headerId) {
                 LTRIM(RTRIM(T3.U_SubGrp6)) AS ItemColor
             FROM (
                 SELECT DISTINCT
-                    HeaderId, DocEntry, ProductCode, ProductName, OrderQty, ReqQty
+                    HeaderId, DocEntry, ProductCode, ProductName, OrderQty, ReqQty, [LineNo]
                 FROM WMS.dbo.Tran_TransDetails
                 WHERE HeaderId = @hid
             ) AS T0
-            INNER JOIN BBLive.dbo.ORDR AS T1 ON T0.DocEntry = T1.DocEntry
+            INNER JOIN BBLive.dbo.ORDR AS T1 ON T0.DocEntry = T1.DocEntry 
             INNER JOIN (
                 SELECT CardCode, MAX(U_SalPriceCode) AS U_SalPriceCode
                 FROM BBLive.dbo.OCRD
@@ -59,7 +59,7 @@ async function loadPicklistData(headerId) {
             ) AS D
             LEFT JOIN BBLive.dbo.OITM AS T3 ON T3.ItemCode = T0.ProductCode COLLATE DATABASE_DEFAULT
             LEFT JOIN BBLive.dbo.OITB AS T4 ON T4.ItmsGrpCod = T3.ItmsGrpCod
-            ORDER BY T0.DocEntry, T0.ProductCode;
+            ORDER BY T0.DocEntry
         `);
     return result.recordset;
 }
