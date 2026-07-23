@@ -2,7 +2,6 @@
 
 const { getPool, sql } = require('../config/db');
 const adam        = require('./Adam6052Service');
-const lightEvents = require('./lightEvents');
 const logger      = require('../utils/logger');
 
 // ─── Station → ADAM DO channel map ────────────────────────────────────────────
@@ -21,43 +20,6 @@ function _channels(stationId) {
 const _cache = new Map();
 
 // ─── Internal helpers ──────────────────────────────────────────────────────────
-
-async function _emitStatus(sessionId, stationId) {
-  try {
-    const pool = await getPool();
-    const res  = await pool.request()
-      .input('sid', sql.Int,          sessionId)
-      .input('sta', sql.NVarChar(50), stationId)
-      .query(`
-        SELECT
-          ls.StatusID, ls.SessionID, ls.StationId, ls.PicklistId,
-          ls.CardCode, ls.PartyId, ls.Channel, ls.ChannelName,
-          ls.Status, ls.UpdatedTime,
-          ISNULL(pp.TotalQty,  0) AS TotalQty,
-          ISNULL(pp.PickedQty, 0) AS PickedQty,
-          ISNULL(pp.TotalQty - pp.PickedQty, 0) AS RemainingQty,
-          CASE
-            WHEN ls.Status = 'ON'  THEN 'ACTIVE'
-            WHEN ls.Status = 'OFF' AND ISNULL(pp.TotalQty - pp.PickedQty, 0) = 0
-              AND ISNULL(pp.TotalQty, 0) > 0 THEN 'COMPLETED'
-            ELSE 'OFF'
-          END AS PartyStatus
-        FROM GTP_StationLightStatus ls
-        LEFT JOIN (
-          SELECT SessionID, CardCode,
-            SUM(RequiredQty) AS TotalQty,
-            SUM(PickedQty)   AS PickedQty
-          FROM GTP_PickProgress
-          GROUP BY SessionID, CardCode
-        ) pp ON pp.SessionID = ls.SessionID AND pp.CardCode = ls.CardCode
-        WHERE ls.SessionID = @sid AND ls.StationId = @sta
-        ORDER BY ls.PartyId
-      `);
-    lightEvents.emit('light-changed', { sessionId, stationId, lights: res.recordset });
-  } catch (err) {
-    logger.error('[LIGHTS] emit error:', err.message);
-  }
-}
 
 async function _loadMapping(sessionId) {
   if (_cache.has(sessionId)) return _cache.get(sessionId);
@@ -191,7 +153,6 @@ async function activatePicklistLights(sessionId, stationId, headerId, parties) {
   }
 
   _cache.set(sessionId, mapping);
-  await _emitStatus(sessionId, stationId);
 }
 
 /**
@@ -262,8 +223,6 @@ async function setActivePartyLight(sessionId, cardCode) {
     .input('cc',  sql.NVarChar(50), cardCode)
     .query(`UPDATE GTP_StationLightStatus SET Status='ON', UpdatedTime=GETDATE()
             WHERE SessionID=@sid AND CardCode=@cc`);
-
-  await _emitStatus(sessionId, stationId);
 }
 
 /**
@@ -294,8 +253,6 @@ async function handlePartyComplete(sessionId, cardCode) {
     .query(`UPDATE GTP_StationLightStatus
             SET Status='OFF', UpdatedTime=GETDATE()
             WHERE SessionID=@sid AND CardCode=@cc`);
-
-  await _emitStatus(sessionId, stationId);
 }
 
 /**
@@ -319,57 +276,6 @@ async function resetStationLights(sessionId) {
             WHERE SessionID=@sid`);
 
   _cache.delete(sessionId);
-  await _emitStatus(sessionId, stationId);
-}
-
-/**
- * getLightStatus(stationId, sessionId?)
- */
-async function getLightStatus(stationId, sessionId) {
-  const pool = await getPool();
-
-  const baseQuery = `
-    SELECT
-      ls.StatusID, ls.SessionID, ls.StationId, ls.PicklistId,
-      ls.CardCode, ls.PartyId, ls.Channel, ls.ChannelName,
-      ls.Status, ls.UpdatedTime,
-      ISNULL(pp.TotalQty,  0) AS TotalQty,
-      ISNULL(pp.PickedQty, 0) AS PickedQty,
-      ISNULL(pp.TotalQty - pp.PickedQty, 0) AS RemainingQty,
-      CASE
-        WHEN ls.Status = 'ON'  THEN 'ACTIVE'
-        WHEN ls.Status = 'OFF' AND ISNULL(pp.TotalQty - pp.PickedQty, 0) = 0
-          AND ISNULL(pp.TotalQty, 0) > 0 THEN 'COMPLETED'
-        ELSE 'OFF'
-      END AS PartyStatus
-    FROM GTP_StationLightStatus ls
-    LEFT JOIN (
-      SELECT SessionID, CardCode,
-        SUM(RequiredQty) AS TotalQty,
-        SUM(PickedQty)   AS PickedQty
-      FROM GTP_PickProgress
-      GROUP BY SessionID, CardCode
-    ) pp ON pp.SessionID = ls.SessionID AND pp.CardCode = ls.CardCode
-  `;
-
-  if (sessionId) {
-    const res = await pool.request()
-      .input('sid', sql.Int,          parseInt(sessionId))
-      .input('sta', sql.NVarChar(50), stationId)
-      .query(`${baseQuery} WHERE ls.SessionID=@sid AND ls.StationId=@sta ORDER BY ls.PartyId`);
-    return res.recordset;
-  }
-
-  const res = await pool.request()
-    .input('sta', sql.NVarChar(50), stationId)
-    .query(`${baseQuery}
-            WHERE ls.StationId=@sta
-              AND ls.SessionID = (
-                SELECT TOP 1 SessionID FROM GTP_StationLightStatus
-                WHERE StationId=@sta ORDER BY StatusID DESC
-              )
-            ORDER BY ls.PartyId`);
-  return res.recordset;
 }
 
 /**
@@ -400,6 +306,5 @@ module.exports = {
   setActivePartyLight,
   handlePartyComplete,
   resetStationLights,
-  getLightStatus,
   resetAllLightStates,
 };

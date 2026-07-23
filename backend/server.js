@@ -11,7 +11,6 @@ const { initDb }      = require('./src/config/db');
 const wsService       = require('./src/services/websocketService');
 const adamService     = require('./src/services/Adam6052Service');
 const adamSocket      = require('./src/socket/adam.socket');
-const lightSocket     = require('./src/socket/light.socket');
 const lightService    = require('./src/services/lightControlService');
 const errorHandler    = require('./src/middleware/errorHandler');
 
@@ -44,7 +43,6 @@ async function start() {
         console.log('✅ WebSocket attached to HTTP server');
 
         adamSocket.init(io);
-        lightSocket.init(io);
         await adamService.start();   // diagnostics + Modbus TCP connect
         console.log('✅ ADAM-6052 Modbus TCP service started');
 

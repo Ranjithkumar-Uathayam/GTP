@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
-  DashboardSummary, Order, OrderItem, InventoryItem,
+  Order, OrderItem, InventoryItem,
   Station, PTLSession, PagedResponse, ScanResult
 } from '../models';
 
@@ -12,15 +12,6 @@ export class ApiService {
   private base = environment.apiUrl;
 
   constructor(private http: HttpClient) {}
-
-  // ─── Dashboard ────────────────────────────────────────────
-  getDashboardSummary(): Observable<{ success: boolean; data: DashboardSummary }> {
-    return this.http.get<any>(`${this.base}/dashboard/summary`);
-  }
-
-  getStationStatus(): Observable<{ success: boolean; data: Station[] }> {
-    return this.http.get<any>(`${this.base}/dashboard/station-status`);
-  }
 
   // ─── Orders ───────────────────────────────────────────────
   getOrders(params: Record<string, unknown> = {}): Observable<PagedResponse<Order>> {
@@ -106,6 +97,7 @@ export class ApiService {
     return this.http.post<any>(`${this.base}/picking/session/${sessionId}/scan`, { barcode, cardCode });
   }
 
+  // ─── Delivery Status ────────────────────────────────────────
   getPicklistSessions(): Observable<{ success: boolean; data: any[] }> {
     return this.http.get<any>(`${this.base}/picking/sessions`);
   }

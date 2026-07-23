@@ -4,7 +4,7 @@
   <div class="pls-header">
     <div class="pls-title">
       <mat-icon>list_alt</mat-icon>
-      <span>Pick List Status</span>
+      <span>Delivery Status</span>
     </div>
     <button mat-icon-button (click)="load()" matTooltip="Refresh" class="pls-refresh-btn">
       <mat-icon>refresh</mat-icon>
@@ -32,7 +32,7 @@
   <!-- Loading -->
   <div *ngIf="loading" class="pls-state-box">
     <mat-spinner diameter="36"></mat-spinner>
-    <span>Loading pick lists…</span>
+    <span>Loading delivery status…</span>
   </div>
 
   <!-- Error -->
@@ -45,7 +45,7 @@
   <!-- Empty -->
   <div *ngIf="!loading && !error && filteredSessions.length === 0" class="pls-state-box">
     <mat-icon class="pls-empty-icon">inbox</mat-icon>
-    <span>No pick lists found</span>
+    <span>No delivery records found</span>
   </div>
 
   <!-- Session list -->

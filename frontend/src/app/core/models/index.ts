@@ -94,14 +94,6 @@ export interface InventoryItem {
   IsActive: boolean;
 }
 
-export interface DashboardSummary {
-  orderCounts: Record<string, number>;
-  activeSessions: number;
-  recentOrders: Partial<Order>[];
-  throughput: { Day: string; OrdersCompleted: number }[];
-  lowStockItems: Partial<InventoryItem>[];
-}
-
 export interface PTLSession {
   OrderID: number;
   OrderNumber: string;

@@ -1,6 +1,5 @@
 const router = require('express').Router();
 
-router.use('/dashboard',    require('./dashboard'));
 router.use('/picking',      require('./gtpPicking'));
 router.use('/adam',         require('./adam.routes'));
 

@@ -18,7 +18,7 @@ interface PartyStatus {
   deliveryUpdatedAt: string | null;
 }
 
-interface PickSession {
+interface DeliverySession {
   sessionId: number;
   headerId: string;
   sessionStatus: 'InProgress' | 'Completed';
@@ -34,14 +34,14 @@ interface PickSession {
 }
 
 @Component({
-  selector: 'app-picklist-status',
-  templateUrl: './picklist-status.component.html',
-  styleUrls: ['./picklist-status.component.scss'],
+  selector:        'app-delivery-status',
+  templateUrl:     './delivery-status.component.html',
+  styleUrls:       ['./delivery-status.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PicklistStatusComponent implements OnInit {
-  sessions: PickSession[] = [];
-  filteredSessions: PickSession[] = [];
+export class DeliveryStatusComponent implements OnInit {
+  sessions: DeliverySession[] = [];
+  filteredSessions: DeliverySession[] = [];
   loading = false;
   error: string | null = null;
   filterStatus: 'All' | 'InProgress' | 'Completed' = 'All';
@@ -86,19 +86,19 @@ export class PicklistStatusComponent implements OnInit {
       : this.sessions.filter(s => s.sessionStatus === this.filterStatus);
   }
 
-  toggle(session: PickSession): void {
+  toggle(session: DeliverySession): void {
     session.expanded = !session.expanded;
     this.cdr.markForCheck();
   }
 
-  continuePicking(session: PickSession, event?: Event): void {
+  continuePicking(session: DeliverySession, event?: Event): void {
     event?.stopPropagation();
     this.router.navigate(['/picking'], {
       queryParams: { sessionId: session.sessionId },
     });
   }
 
-  postDelivery(session: PickSession, party: PartyStatus, event: Event): void {
+  postDelivery(session: DeliverySession, party: PartyStatus, event: Event): void {
     event.stopPropagation();
     const key = `${session.sessionId}_${party.cardCode}`;
     if (this.retryingMap.get(key)) return;
@@ -132,7 +132,7 @@ export class PicklistStatusComponent implements OnInit {
     return this.sessions.filter(s => s.sessionStatus === status).length;
   }
 
-  sessionDeliveryState(session: PickSession): 'all-posted' | 'some-failed' | 'none' | 'partial' {
+  sessionDeliveryState(session: DeliverySession): 'all-posted' | 'some-failed' | 'none' | 'partial' {
     const parties = session.parties;
     const posted  = parties.filter(p => p.deliveryStatus === 'Success').length;
     const failed  = parties.filter(p => p.deliveryStatus === 'Failed').length;
