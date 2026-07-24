@@ -50,6 +50,8 @@ $orange:    #ff9800;
   .bar-hl    { font-weight: 700; color: $green; font-size: 15px; }
   .bar-party { font-weight: 600; color: $amber; font-size: 13px; max-width: 220px;
                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-station { font-weight: 600; color: $blue; font-size: 12px; background: $blue-dim;
+                  padding: 2px 8px; border-radius: 4px; }
   .bar-spacer { flex: 1; }
 
   .bar-progress {
@@ -138,6 +140,38 @@ $orange:    #ff9800;
       border-radius: 6px;
       padding: 8px 12px;
       mat-icon { font-size: 16px; }
+    }
+
+    .station-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      padding: 10px 12px;
+      text-align: left;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+
+      &.validating {
+        align-items: center;
+        color: $muted;
+        background: $surface2;
+        border: 1px solid $border;
+      }
+
+      &.ready {
+        color: $green;
+        background: $green-dim;
+        border: 1px solid rgba($green, .3);
+        .status-details { display: flex; flex-direction: column; gap: 2px; }
+        .status-line { color: $text; b { color: $green; font-weight: 600; margin-right: 4px; } }
+      }
+
+      &.not-ready {
+        color: $red;
+        background: $red-dim;
+        border: 1px solid rgba($red, .3);
+      }
     }
 
     .load-btn {

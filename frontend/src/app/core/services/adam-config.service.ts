@@ -15,6 +15,22 @@ export interface AdamDeviceConfigInput {
   isActive?: boolean;
 }
 
+export interface AdamDeviceRuntimeStatus {
+  deviceCode: string;
+  exists: boolean;
+  ipAddress?: string;
+  port?: number;
+  unitId?: number;
+  outputStartChannel?: number;
+  outputEndChannel?: number;
+  macAddress?: string | null;
+  isActive?: boolean;
+  connected?: boolean;
+  macStatus?: 'ok' | 'mismatch' | 'unknown';
+  usable: boolean;
+  reason: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdamConfigService {
   private base = `${environment.apiUrl}/adam-devices`;
@@ -27,6 +43,11 @@ export class AdamConfigService {
 
   getByCode(deviceCode: string): Observable<{ success: boolean; data: AdamDeviceConfig }> {
     return this.http.get<any>(`${this.base}/${encodeURIComponent(deviceCode)}`);
+  }
+
+  /** Config + live MAC/connected state for one device — used to gate the picking screen. */
+  getStatus(deviceCode: string): Observable<{ success: boolean; data: AdamDeviceRuntimeStatus }> {
+    return this.http.get<any>(`${this.base}/${encodeURIComponent(deviceCode)}/status`);
   }
 
   create(body: AdamDeviceConfigInput): Observable<{ success: boolean; data: AdamDeviceConfig }> {

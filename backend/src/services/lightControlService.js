@@ -41,8 +41,11 @@ async function _rebuildMapping(sessionId, cardCode) {
       .query(`SELECT TOP 1 HeaderId FROM GTP_PicklistSessions WHERE SessionID=@sid`);
     const headerId  = sesRes.recordset[0]?.HeaderId || '';
     const stationId = DEFAULT_STATION;
-    // Fallback array if the default station has no device config row (legacy sessions only).
-    const channels  = deviceManager.getChannels(stationId) || [0, 1, 2, 3];
+    const channels  = deviceManager.getChannels(stationId);
+    if (!channels) {
+      logger.error(`[LIGHTS] _rebuildMapping: no active ADAM device configured for station=${stationId} — cannot rebuild mapping`);
+      return;
+    }
 
     // Get distinct parties in true customer/insertion order — ProgressID is an
     // IDENTITY column seeded in the same order as activatePicklistLights' seenParties,
@@ -106,14 +109,15 @@ async function _getStationId(sessionId) {
  * - Does NOT turn any light ON — lights activate on first scan via setActivePartyLight()
  */
 async function activatePicklistLights(sessionId, stationId, headerId, parties) {
-  // Throws ADAM_CONFIG_MISSING / ADAM_MAC_MISMATCH — caller (gtpPickingService.startSession)
-  // lets these fail the session start outright; every other error is logged and swallowed.
-  const { device, channels } = deviceManager.assertUsable(stationId);
+  // Throws ADAM_CONFIG_MISSING / ADAM_DEVICE_INACTIVE / ADAM_MAC_MISMATCH / ADAM_DEVICE_INIT_FAILED —
+  // caller (gtpPickingService.startSession) lets these fail the session start outright;
+  // every other error is logged and swallowed.
+  const { device, channels } = await deviceManager.assertUsable(stationId);
 
   const pool    = await getPool();
   const mapping = {};
 
-  logger.info(`[LIGHTS] Init session=${sessionId} station=${stationId} parties=${parties.length} — all OFF`);
+  logger.info(`[LIGHTS] Init session=${sessionId} station=${stationId} parties=${parties.length} — using ip=${device.ip}:${device.port} outputSeries=D${channels[0]}-D${channels[channels.length - 1]} — all OFF`);
 
   // Reset all station channels to OFF — one atomic FC15 write
   device.writeAllOutputs(0)

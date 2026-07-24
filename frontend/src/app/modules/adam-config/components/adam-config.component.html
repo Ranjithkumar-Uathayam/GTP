@@ -19,18 +19,23 @@
     <mat-card-content>
       <div class="form-title">{{ editing ? 'Edit Device Config — ' + editing.DeviceCode : 'Add Device Config' }}</div>
 
-      <div class="form-grid">
-        <mat-form-field appearance="outline">
+      <!-- Each .form-row is its own flex container, so a wrapping hint in one
+           row can never overlap the row below it (unlike the previous single
+           CSS-grid layout, where a long Device Code hint bled into the MAC row). -->
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="grow">
           <mat-label>Device Code</mat-label>
           <input matInput [(ngModel)]="form.deviceCode" placeholder="e.g. STN-01" />
-          <mat-hint>Matches the station code used when starting a picking session</mat-hint>
+          <mat-hint>Matched by the picking flow to select this device</mat-hint>
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
+        <mat-form-field appearance="outline" class="grow">
           <mat-label>ADAM IP Address</mat-label>
           <input matInput [(ngModel)]="form.ipAddress" placeholder="10.0.210.87" />
         </mat-form-field>
+      </div>
 
+      <div class="form-row">
         <mat-form-field appearance="outline" class="narrow">
           <mat-label>Port</mat-label>
           <input matInput type="number" [(ngModel)]="form.port" />
@@ -49,21 +54,25 @@
         <mat-form-field appearance="outline" class="narrow">
           <mat-label>Output End Ch.</mat-label>
           <input matInput type="number" min="0" max="7" [(ngModel)]="form.outputEndChannel" />
-          <mat-hint>DO channels 0-7</mat-hint>
+          <mat-hint>DO 0-7</mat-hint>
         </mat-form-field>
+      </div>
 
-        <mat-form-field appearance="outline" class="mac-field">
+      <div class="form-row mac-row">
+        <mat-form-field appearance="outline" class="grow-wide">
           <mat-label>MAC Address</mat-label>
           <input matInput [(ngModel)]="form.macAddress" placeholder="AA:BB:CC:DD:EE:FF" />
-          <mat-hint>Locks communication to this device — leave blank to skip validation for now</mat-hint>
+          <mat-hint>Locks communication to this device — optional, leave blank to skip validation</mat-hint>
         </mat-form-field>
 
         <button mat-stroked-button class="detect-btn" [disabled]="detecting" (click)="detectMac()">
           <mat-spinner *ngIf="detecting" diameter="16" class="btn-spinner"></mat-spinner>
           <span *ngIf="!detecting">Detect MAC</span>
         </button>
+      </div>
 
-        <mat-slide-toggle [(ngModel)]="form.isActive" class="active-toggle">Active</mat-slide-toggle>
+      <div class="form-row">
+        <mat-slide-toggle [(ngModel)]="form.isActive">Active</mat-slide-toggle>
       </div>
 
       <div class="form-error" *ngIf="formError">{{ formError }}</div>

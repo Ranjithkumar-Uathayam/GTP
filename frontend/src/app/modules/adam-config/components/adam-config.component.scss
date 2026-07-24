@@ -59,25 +59,29 @@ $radius:   10px;
   margin-bottom: 12px;
 }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 4px 16px;
-  align-items: start;
+// Each row is its own flex container — a tall/wrapping hint in one field
+// only grows that row's height, it can never overlap the row below it.
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
 
-  .narrow { max-width: 140px; }
-  .mac-field { grid-column: span 2; }
+  .grow      { flex: 1 1 200px; }
+  .grow-wide { flex: 1 1 320px; }
+  .narrow    { flex: 0 1 140px; }
 }
 
+.mac-row { align-items: flex-start; }
+
 .detect-btn {
-  align-self: center;
   height: 56px;
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
-
-.active-toggle { align-self: center; margin-top: 8px; }
 
 .btn-spinner { margin-right: 6px; }
 

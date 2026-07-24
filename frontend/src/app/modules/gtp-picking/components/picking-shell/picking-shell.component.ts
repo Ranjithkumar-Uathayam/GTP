@@ -8,6 +8,7 @@ import { takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../../../core/services/api.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { WebsocketService } from '../../../../core/services/websocket.service';
+import { AdamConfigService, AdamDeviceRuntimeStatus } from '../../../../core/services/adam-config.service';
 import {
   PicklistPreview, PicklistSession, PicklistParty, PicklistItem, ScanFeedback,
 } from '../../../../core/models/picking.models';
@@ -41,6 +42,15 @@ export class PickingShellComponent implements OnInit, OnDestroy {
   picklistError  = '';
   preview: PicklistPreview | null = null;
 
+  // Which ADAM device (GTP Station) this kiosk picks against — persisted per
+  // browser so it's set once, not re-chosen every picklist. Selecting the wrong
+  // one here is exactly what silently activated the wrong Output Series before.
+  private static readonly STATION_STORAGE_KEY = 'gtp-picking-station';
+  stations: string[] = [];
+  selectedStation: string | null = null;
+  deviceStatus: AdamDeviceRuntimeStatus | null = null;
+  validatingStation = false;
+
   // ── Session ────────────────────────────────────────────────
   session: PicklistSession | null = null;
 
@@ -65,14 +75,17 @@ export class PickingShellComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   constructor(
-    private api:    ApiService,
-    private notify: NotificationService,
-    private ws:     WebsocketService,
-    private cdr:    ChangeDetectorRef,
-    private route:  ActivatedRoute,
+    private api:        ApiService,
+    private notify:     NotificationService,
+    private ws:         WebsocketService,
+    private cdr:        ChangeDetectorRef,
+    private route:      ActivatedRoute,
+    private adamConfig: AdamConfigService,
   ) {}
 
   ngOnInit(): void {
+    this.loadStations();
+
     // Auto-load headerId from query param (e.g. navigated from status page)
     const qHeaderId  = this.route.snapshot.queryParamMap.get('headerId');
     const qSessionId = this.route.snapshot.queryParamMap.get('sessionId');
@@ -95,12 +108,71 @@ export class PickingShellComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Station selection ─────────────────────────────────────────
+  // Loads the ADAM devices configured as Active in ADAM Device Configuration —
+  // only these have a real, connected output series to activate.
+  loadStations(): void {
+    this.adamConfig.list().subscribe({
+      next: (r) => {
+        this.stations = r.data.filter(d => d.IsActive).map(d => d.DeviceCode);
+        const saved = localStorage.getItem(PickingShellComponent.STATION_STORAGE_KEY);
+        this.selectedStation = (saved && this.stations.includes(saved))
+          ? saved
+          : (this.stations[0] ?? null);
+        this.cdr.markForCheck();
+        if (this.selectedStation) this.checkStationStatus(this.selectedStation);
+      },
+      error: (err) => console.error('[PickingShell] Failed to load stations', err),
+    });
+  }
+
+  onStationChange(code: string): void {
+    this.selectedStation = code;
+    localStorage.setItem(PickingShellComponent.STATION_STORAGE_KEY, code);
+    this.checkStationStatus(code);
+  }
+
+  /** Pre-flight check — loads the device's IP/Output Series/MAC/Status and verifies
+   *  it's Active with a matching MAC *before* the operator is allowed to scan anything. */
+  checkStationStatus(code: string): void {
+    this.validatingStation = true;
+    this.deviceStatus = null;
+    this.adamConfig.getStatus(code).subscribe({
+      next: (r) => {
+        this.deviceStatus = r.data;
+        this.validatingStation = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.deviceStatus = {
+          deviceCode: code, exists: false, usable: false,
+          reason: err.error?.message || 'Failed to check device status',
+        };
+        this.validatingStation = false;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  get stationReady(): boolean {
+    return !!this.deviceStatus?.usable;
+  }
+
   // ════════════════════════════════════════════════════════════
   // STEP 1 — Picklist scan → auto-start → picking board
   // ════════════════════════════════════════════════════════════
   loadPicklist(): void {
     const raw = this.picklistInput.trim();
     if (!raw || this.picklistLoading) return;
+
+    if (!this.selectedStation) {
+      this.picklistError = 'Select a station before loading a picklist — configure one in ADAM Device Configuration if none appear.';
+      return;
+    }
+    if (!this.stationReady) {
+      this.picklistError = this.deviceStatus?.reason || 'Selected station is not ready — check ADAM Device Configuration';
+      return;
+    }
 
     this.picklistError   = '';
     this.picklistLoading = true;
@@ -123,7 +195,7 @@ export class PickingShellComponent implements OnInit, OnDestroy {
 
   startNewSession(): void {
     if (!this.preview) return;
-    this.api.startPicklistSession(this.preview.headerId).subscribe({
+    this.api.startPicklistSession(this.preview.headerId, undefined, this.selectedStation ?? undefined).subscribe({
       next: (r) => {
         this.picklistLoading = false;
         this.session         = r.data;

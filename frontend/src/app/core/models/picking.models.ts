@@ -52,6 +52,7 @@ export interface PicklistPartyPreview {
 export interface PicklistSession {
   sessionId:         number;
   headerId:          string;
+  stationId:         string | null;
   countofOrder:      number;
   status:            'InProgress' | 'Completed' | 'Abandoned';
   startedAt:         string;

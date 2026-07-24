@@ -2,6 +2,7 @@ const { getPool, sql } = require('../config/db');
 const ws     = require('./websocketService');
 const delivery = require('./deliveryService');
 const lights = require('./lightControlService');
+const { BLOCKING_ERROR_CODES } = require('./adamDeviceManager');
 
 // ── Parse barcode: ITEMCODE|ST|IDVALUE|GROUP|UNIQUENUM|QTY ────
 function parseBarcode(raw) {
@@ -121,9 +122,10 @@ async function startSession(headerId, operatorId, stationId = 'STN-01') {
     try {
         await lights.activatePicklistLights(sessionId, stationId, headerId, seenParties);
     } catch (err) {
-        // ADAM config missing / MAC mismatch must fail session start with a clear message;
-        // any other (transient hardware/network) error is logged and swallowed as before.
-        if (err.code === 'ADAM_CONFIG_MISSING' || err.code === 'ADAM_MAC_MISMATCH') throw err;
+        // Missing config / inactive device / MAC mismatch / init failure must fail session
+        // start with a clear message; any other (transient hardware/network) error is
+        // logged and swallowed as before.
+        if (BLOCKING_ERROR_CODES.includes(err.code)) throw err;
         console.error('[LIGHTS] activatePicklistLights error:', err.message);
     }
 
@@ -140,6 +142,11 @@ async function getSession(sessionId) {
         .query('SELECT * FROM GTP_PicklistSessions WHERE SessionID=@sid');
     const session = sesRes.recordset[0];
     if (!session) throw Object.assign(new Error('Session not found'), { status: 404 });
+
+    const stationRes = await pool.request()
+        .input('sid', sql.Int, sessionId)
+        .query(`SELECT TOP 1 StationId FROM GTP_StationLightStatus WHERE SessionID=@sid`);
+    const stationId = stationRes.recordset[0]?.StationId || null;
 
     const rawRows = await loadPicklistData(session.HeaderId);
     if (!rawRows.length) throw Object.assign(
@@ -229,6 +236,7 @@ async function getSession(sessionId) {
     return {
         sessionId,
         headerId:        session.HeaderId,
+        stationId,
         countofOrder,
         status:          session.Status,
         startedAt:       session.StartedAt,

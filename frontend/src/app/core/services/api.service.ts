@@ -85,8 +85,8 @@ export class ApiService {
     return this.http.get<any>(`${this.base}/picking/picklist/${encodeURIComponent(headerId)}/resume`);
   }
 
-  startPicklistSession(headerId: string, operatorId?: number): Observable<{ success: boolean; data: any }> {
-    return this.http.post<any>(`${this.base}/picking/session/start`, { headerId, operatorId });
+  startPicklistSession(headerId: string, operatorId?: number, stationId?: string): Observable<{ success: boolean; data: any }> {
+    return this.http.post<any>(`${this.base}/picking/session/start`, { headerId, operatorId, stationId });
   }
 
   getPicklistSession(sessionId: number): Observable<{ success: boolean; data: any }> {

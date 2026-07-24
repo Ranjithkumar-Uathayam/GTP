@@ -20,12 +20,42 @@
         <p class="scan-sub">Scan or enter the picklist number to load order details</p>
 
         <div class="input-group">
+          <mat-form-field appearance="outline" class="pick-field station-field">
+            <mat-label>GTP Station *</mat-label>
+            <mat-select [ngModel]="selectedStation" (ngModelChange)="onStationChange($event)"
+                        [disabled]="!stations.length">
+              <mat-option *ngFor="let code of stations" [value]="code">{{ code }}</mat-option>
+            </mat-select>
+            <mat-hint *ngIf="!stations.length">No active ADAM devices — configure one in ADAM Device Configuration</mat-hint>
+          </mat-form-field>
+
+          <!-- Pre-flight device check — config details shown, scanning blocked until usable=true -->
+          <div class="station-status validating" *ngIf="validatingStation">
+            <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+            <span>Validating station device…</span>
+          </div>
+
+          <div class="station-status ready" *ngIf="!validatingStation && stationReady">
+            <mat-icon>verified</mat-icon>
+            <div class="status-details">
+              <span class="status-line"><b>IP</b> {{ deviceStatus?.ipAddress }}:{{ deviceStatus?.port }}</span>
+              <span class="status-line"><b>Output Series</b> D{{ deviceStatus?.outputStartChannel }}–D{{ deviceStatus?.outputEndChannel }}</span>
+              <span class="status-line"><b>MAC</b> {{ deviceStatus?.macAddress || 'Not locked' }}</span>
+              <span class="status-line"><b>Status</b> Active</span>
+            </div>
+          </div>
+
+          <div class="station-status not-ready" *ngIf="!validatingStation && deviceStatus && !stationReady">
+            <mat-icon>block</mat-icon>
+            <span>{{ deviceStatus.reason }}</span>
+          </div>
+
           <mat-form-field appearance="outline" class="pick-field">
             <mat-label>Picklist Number</mat-label>
             <input matInput #picklistInputEl
                    [(ngModel)]="picklistInput"
                    (keydown.enter)="loadPicklist()"
-                   [disabled]="picklistLoading"
+                   [disabled]="picklistLoading || !stationReady"
                    placeholder="e.g. 69958"
                    autocomplete="off"
                    autofocus>
@@ -37,7 +67,7 @@
           </div>
 
           <button mat-raised-button class="load-btn"
-                  [disabled]="!picklistInput || picklistLoading"
+                  [disabled]="!picklistInput || picklistLoading || !stationReady"
                   (click)="loadPicklist()">
             <mat-progress-spinner *ngIf="picklistLoading" diameter="20" mode="indeterminate"></mat-progress-spinner>
             <ng-container *ngIf="!picklistLoading">
@@ -62,6 +92,10 @@
       </button>
       <mat-icon class="bar-logo">inventory</mat-icon>
       <span class="bar-title">Picking</span>
+      <span class="bar-sep" *ngIf="session?.stationId">›</span>
+      <span class="bar-station" *ngIf="session?.stationId as stationId" matTooltip="ADAM device driving this station's lights">
+        {{ stationId }}
+      </span>
       <span class="bar-sep">›</span>
       <span class="bar-hl">{{ session?.headerId }}</span>
       <span class="bar-sep">›</span>
