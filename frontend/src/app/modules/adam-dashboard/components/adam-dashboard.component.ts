@@ -64,6 +64,9 @@ export class AdamDashboardComponent implements OnInit, OnDestroy {
   allValue      = 0;      // 0–255 bitmask for write-all
   actionLoading = false;
 
+  deviceCodes: string[] = [];
+  selectedDevice: string | null = null;   // null = legacy env-configured device
+
   // Bit display helpers
   readonly doBitOrder = [7, 6, 5, 4, 3, 2, 1, 0];
   readonly diRows     = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -71,6 +74,11 @@ export class AdamDashboardComponent implements OnInit, OnDestroy {
   constructor(private adam: AdamService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
+    this.adam.listDevices().subscribe({
+      next: (r) => { this.deviceCodes = r.data; this.cdr.markForCheck(); },
+      error: () => {},
+    });
+
     this.adam.status$.pipe(takeUntil(this.destroy$)).subscribe((s) => {
       // When disconnected or error, zero all channel values so the display
       // never shows stale hardware state from before the disconnect.
@@ -146,6 +154,16 @@ export class AdamDashboardComponent implements OnInit, OnDestroy {
         this.actionLoading = false;
         this.cdr.markForCheck();
       },
+    });
+  }
+
+  // ── Device selection ──────────────────────────────────────────────────────
+  onDeviceChange(deviceCode: string | null): void {
+    this.selectedDevice = deviceCode;
+    this.adam.selectDevice(deviceCode);
+    this.adam.getConnection().subscribe({
+      next:  (c) => { this.connection = c; this.cdr.markForCheck(); },
+      error: () => {},
     });
   }
 

@@ -11,6 +11,10 @@ const routes: Routes = [
     path: 'adam',
     loadChildren: () => import('./modules/adam-dashboard/adam-dashboard.module').then(m => m.AdamDashboardModule),
   },
+  {
+    path: 'adam-config',
+    loadChildren: () => import('./modules/adam-config/adam-config.module').then(m => m.AdamConfigModule),
+  },
   { path: '**', redirectTo: 'picking' },
 ];
 

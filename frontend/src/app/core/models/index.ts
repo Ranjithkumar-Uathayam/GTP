@@ -133,6 +133,20 @@ export interface PagedResponse<T> {
   totalPages: number;
 }
 
+export interface AdamDeviceConfig {
+  DeviceConfigID: number;
+  DeviceCode: string;
+  IpAddress: string;
+  Port: number;
+  UnitId: number;
+  OutputStartChannel: number;
+  OutputEndChannel: number;
+  MacAddress: string | null;
+  IsActive: boolean;
+  CreatedAt: string;
+  UpdatedAt?: string | null;
+}
+
 export interface WsMessage {
   type: string;
   data: unknown;

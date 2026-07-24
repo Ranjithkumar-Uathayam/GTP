@@ -3,6 +3,9 @@
 const router = require('express').Router();
 const ctrl   = require('../controllers/adam.controller');
 
+// ── Device selector ────────────────────────────────────────────────────────────
+router.get('/devices', ctrl.listDevices);   // configured device codes, for the dropdown
+
 // ── Status & diagnostics ──────────────────────────────────────────────────────
 router.get('/status',     ctrl.getStatus);       // polling cache (sync)
 router.get('/check',      ctrl.checkConnection); // ping + TCP port probe

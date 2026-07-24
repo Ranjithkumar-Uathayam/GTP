@@ -121,6 +121,9 @@ async function startSession(headerId, operatorId, stationId = 'STN-01') {
     try {
         await lights.activatePicklistLights(sessionId, stationId, headerId, seenParties);
     } catch (err) {
+        // ADAM config missing / MAC mismatch must fail session start with a clear message;
+        // any other (transient hardware/network) error is logged and swallowed as before.
+        if (err.code === 'ADAM_CONFIG_MISSING' || err.code === 'ADAM_MAC_MISMATCH') throw err;
         console.error('[LIGHTS] activatePicklistLights error:', err.message);
     }
 

@@ -6,12 +6,12 @@ const net          = require('net');
 const { exec }     = require('child_process');
 const logger       = require('../utils/logger');
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-const ADAM_IP      = (process.env.ADAM_IP      || '10.0.210.87').trim();
-const ADAM_PORT    = parseInt((process.env.ADAM_PORT    || '502').trim(),  10);
-const ADAM_UNIT_ID = parseInt((process.env.ADAM_UNIT_ID || '1').trim(),   10);
-const POLL_MS      = parseInt((process.env.ADAM_POLL_MS || '1000').trim(), 10);
-const TIMEOUT_MS   = parseInt((process.env.ADAM_TIMEOUT || '5000').trim(), 10);
+// ─── Config (env defaults — used when a device is built with no overrides) ────
+const ENV_ADAM_IP      = (process.env.ADAM_IP      || '10.0.210.87').trim();
+const ENV_ADAM_PORT    = parseInt((process.env.ADAM_PORT    || '502').trim(),  10);
+const ENV_ADAM_UNIT_ID = parseInt((process.env.ADAM_UNIT_ID || '1').trim(),   10);
+const ENV_POLL_MS      = parseInt((process.env.ADAM_POLL_MS || '1000').trim(), 10);
+const ENV_TIMEOUT_MS   = parseInt((process.env.ADAM_TIMEOUT || '5000').trim(), 10);
 
 const RECONNECT_BASE = 2000;
 const RECONNECT_MAX  = 60000;
@@ -27,10 +27,16 @@ const DO_START = 0x0010;
 const DO_COUNT = 8;
 
 class Adam6052Service extends EventEmitter {
-  constructor() {
+  constructor(options = {}) {
     super();
+    this.ip        = String(options.ip || ENV_ADAM_IP).trim();
+    this.port      = parseInt(options.port      ?? ENV_ADAM_PORT,    10);
+    this.unitId    = parseInt(options.unitId    ?? ENV_ADAM_UNIT_ID, 10);
+    this.pollMs    = parseInt(options.pollMs    ?? ENV_POLL_MS,      10);
+    this.timeoutMs = parseInt(options.timeoutMs ?? ENV_TIMEOUT_MS,   10);
+
     this._client         = new ModbusRTU();
-    this._client.setTimeout(TIMEOUT_MS);
+    this._client.setTimeout(this.timeoutMs);
 
     this._connected      = false;
     this._destroyed      = false;
@@ -46,7 +52,7 @@ class Adam6052Service extends EventEmitter {
   // Modbus TCP is serial — only one request at a time on a single client.
   // Both _poll() and writeSingleOutput() share the _busy flag as a mutex.
   async _withLock(fn) {
-    const deadline = Date.now() + TIMEOUT_MS;
+    const deadline = Date.now() + this.timeoutMs;
     while (this._busy) {
       if (Date.now() > deadline) {
         logger.warn('[ADAM] Lock wait timeout — forcing proceed');
@@ -70,9 +76,9 @@ class Adam6052Service extends EventEmitter {
       do:                Array(DO_COUNT).fill(false),
       diCount:           DI_COUNT,
       doCount:           DO_COUNT,
-      ip:                ADAM_IP,
-      port:              ADAM_PORT,
-      unitId:            ADAM_UNIT_ID,
+      ip:                this.ip,
+      port:              this.port,
+      unitId:            this.unitId,
       reconnectAttempts: 0,
       error:             null,
     };
@@ -87,21 +93,21 @@ class Adam6052Service extends EventEmitter {
   async start() {
     logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     logger.info('[ADAM] Starting Modbus TCP service');
-    logger.info(`[ADAM]   IP:      ${ADAM_IP}`);
-    logger.info(`[ADAM]   Port:    ${ADAM_PORT}  (Modbus TCP)`);
-    logger.info(`[ADAM]   Unit ID: ${ADAM_UNIT_ID}`);
-    logger.info(`[ADAM]   Poll:    every ${POLL_MS} ms`);
-    logger.info(`[ADAM]   Timeout: ${TIMEOUT_MS} ms`);
+    logger.info(`[ADAM]   IP:      ${this.ip}`);
+    logger.info(`[ADAM]   Port:    ${this.port}  (Modbus TCP)`);
+    logger.info(`[ADAM]   Unit ID: ${this.unitId}`);
+    logger.info(`[ADAM]   Poll:    every ${this.pollMs} ms`);
+    logger.info(`[ADAM]   Timeout: ${this.timeoutMs} ms`);
     logger.info(`[ADAM]   DI:      ${DI_COUNT} channels  (FC02 addr 0x${DI_START.toString(16).toUpperCase().padStart(4,'0')})`);
     logger.info(`[ADAM]   DO:      ${DO_COUNT} channels  (FC01/05/15 addr 0x${DO_START.toString(16).toUpperCase().padStart(4,'0')})`);
 
-    const tcpOpen = await this._testTcpPort(ADAM_IP, ADAM_PORT, 3000);
+    const tcpOpen = await this._testTcpPort(this.ip, this.port, 3000);
     if (tcpOpen) {
-      logger.info(`[ADAM] ✅ Port ${ADAM_PORT} open — initiating Modbus TCP connection`);
+      logger.info(`[ADAM] ✅ Port ${this.port} open — initiating Modbus TCP connection`);
     } else {
-      logger.warn(`[ADAM] ⚠  Port ${ADAM_PORT} not responding at startup`);
+      logger.warn(`[ADAM] ⚠  Port ${this.port} not responding at startup`);
       logger.warn('[ADAM]    Will connect with exponential backoff (2 s → 4 s → … → 60 s)');
-      logger.warn('[ADAM]    Windows test: Test-NetConnection 10.0.210.87 -Port 502');
+      logger.warn(`[ADAM]    Windows test: Test-NetConnection ${this.ip} -Port ${this.port}`);
     }
     logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
@@ -116,21 +122,21 @@ class Adam6052Service extends EventEmitter {
     clearTimeout(this._reconnTimer);
     this._reconnTimer = null;
 
-    logger.info(`[ADAM] Connecting → ${ADAM_IP}:${ADAM_PORT} (attempt #${this._reconnAttempts + 1})`);
+    logger.info(`[ADAM] Connecting → ${this.ip}:${this.port} (attempt #${this._reconnAttempts + 1})`);
 
     try {
       if (this._client.isOpen) {
         try { await this._client.close(); } catch (_) {}
       }
 
-      await this._client.connectTCP(ADAM_IP, { port: ADAM_PORT });
-      this._client.setID(ADAM_UNIT_ID);
+      await this._client.connectTCP(this.ip, { port: this.port });
+      this._client.setID(this.unitId);
 
       this._connected      = true;
       this._reconnAttempts = 0;
       this._lastError      = null;
 
-      logger.info(`[ADAM] ✅ Modbus TCP connected — ${ADAM_IP}:${ADAM_PORT}  unit ${ADAM_UNIT_ID}`);
+      logger.info(`[ADAM] ✅ Modbus TCP connected — ${this.ip}:${this.port}  unit ${this.unitId}`);
       this.emit('connected');
       this._startPolling();
     } catch (err) {
@@ -151,11 +157,11 @@ class Adam6052Service extends EventEmitter {
   _logConnectError(err) {
     const code = String(err.errno || err.code || '');
     if (code === 'ECONNREFUSED' || code === '-4078') {
-      logger.error(`[ADAM] ❌ ECONNREFUSED  ${ADAM_IP}:${ADAM_PORT}`);
+      logger.error(`[ADAM] ❌ ECONNREFUSED  ${this.ip}:${this.port}`);
       logger.error('[ADAM]    Modbus TCP server is not listening on this port.');
-      logger.error('[ADAM]    Check: Test-NetConnection 10.0.210.87 -Port 502');
+      logger.error(`[ADAM]    Check: Test-NetConnection ${this.ip} -Port ${this.port}`);
     } else if (code === 'ETIMEDOUT' || code === '-4039') {
-      logger.error(`[ADAM] ❌ ETIMEDOUT  ${ADAM_IP}:${ADAM_PORT}`);
+      logger.error(`[ADAM] ❌ ETIMEDOUT  ${this.ip}:${this.port}`);
       logger.error('[ADAM]    No response — verify IP, subnet, cable, power.');
     } else {
       logger.error(`[ADAM] ❌ Connect error [${code}]: ${err.message}`);
@@ -197,7 +203,7 @@ class Adam6052Service extends EventEmitter {
   _startPolling() {
     this._stopPolling();
     this._poll();
-    this._pollTimer = setInterval(() => this._poll(), POLL_MS);
+    this._pollTimer = setInterval(() => this._poll(), this.pollMs);
   }
 
   _stopPolling() {
@@ -220,9 +226,9 @@ class Adam6052Service extends EventEmitter {
           do:        Array.from(doResp.data.slice(0, DO_COUNT)),
           diCount:   DI_COUNT,
           doCount:   DO_COUNT,
-          ip:        ADAM_IP,
-          port:      ADAM_PORT,
-          unitId:    ADAM_UNIT_ID,
+          ip:        this.ip,
+          port:      this.port,
+          unitId:    this.unitId,
           error:     null,
         };
         this._lastStatus = status;
@@ -338,9 +344,9 @@ class Adam6052Service extends EventEmitter {
 
   async checkConnection() {
     const result = {
-      ip:        ADAM_IP,
-      port:      ADAM_PORT,
-      unitId:    ADAM_UNIT_ID,
+      ip:        this.ip,
+      port:      this.port,
+      unitId:    this.unitId,
       protocol:  'Modbus TCP',
       reachable: false,
       tcpOpen:   false,
@@ -350,18 +356,18 @@ class Adam6052Service extends EventEmitter {
     };
 
     const t0         = Date.now();
-    result.reachable = await this._ping(ADAM_IP);
+    result.reachable = await this._ping(this.ip);
     result.pingMs    = Date.now() - t0;
 
     const t1         = Date.now();
-    result.tcpOpen   = await this._testTcpPort(ADAM_IP, ADAM_PORT, 3000);
+    result.tcpOpen   = await this._testTcpPort(this.ip, this.port, 3000);
     result.tcpMs     = Date.now() - t1;
 
     if (!result.reachable) {
       result.hints.push('Device not responding to ping — check IP, cable, power');
     }
     if (result.reachable && !result.tcpOpen) {
-      result.hints.push(`Port ${ADAM_PORT} closed — Modbus TCP not enabled on device`);
+      result.hints.push(`Port ${this.port} closed — Modbus TCP not enabled on device`);
       result.hints.push('In ADAM Utility: set Protocol = Modbus TCP, enable TCP Server');
     }
     if (result.tcpOpen) {
@@ -398,4 +404,4 @@ class Adam6052Service extends EventEmitter {
   }
 }
 
-module.exports = new Adam6052Service();
+module.exports = Adam6052Service;

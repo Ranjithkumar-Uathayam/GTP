@@ -250,3 +250,30 @@ CREATE TABLE GTP_DeliveryLog (
 GO
 CREATE INDEX IX_DeliveryLog_Session ON GTP_DeliveryLog (SessionID, CardCode);
 GO
+
+-- ============================================================
+-- ADAM-6052 Device Configuration (flat device list)
+-- Created automatically by adamDeviceConfigService on first use.
+-- Replaces the old hardcoded ADAM_IP / STATION_CHANNELS config.
+-- DeviceCode is a free-text key (e.g. "STN-01") that the picking flow
+-- (gtpPickingService/lightControlService) matches against — not a
+-- foreign key into GTP_Stations, so device count isn't limited to
+-- however many GTP stations exist.
+-- ============================================================
+
+CREATE TABLE GTP_AdamDevices (
+    DeviceConfigID     INT PRIMARY KEY IDENTITY(1,1),
+    DeviceCode         NVARCHAR(50) NOT NULL UNIQUE,
+    IpAddress          NVARCHAR(45) NOT NULL,
+    Port               INT NOT NULL DEFAULT 502,
+    UnitId             INT NOT NULL DEFAULT 1,
+    OutputStartChannel INT NOT NULL,       -- ADAM DO channel 0-7
+    OutputEndChannel   INT NOT NULL,       -- ADAM DO channel 0-7, >= start
+    MacAddress         NVARCHAR(17) NULL,  -- AA:BB:CC:DD:EE:FF; NULL = not yet locked
+    IsActive           BIT NOT NULL DEFAULT 1,
+    CreatedAt          DATETIME NOT NULL DEFAULT GETDATE(),
+    UpdatedAt          DATETIME NULL
+);
+GO
+CREATE INDEX IX_AdamDevices_Ip ON GTP_AdamDevices(IpAddress);
+GO

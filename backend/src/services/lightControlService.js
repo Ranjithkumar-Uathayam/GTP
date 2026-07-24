@@ -1,19 +1,10 @@
 'use strict';
 
 const { getPool, sql } = require('../config/db');
-const adam        = require('./Adam6052Service');
+const deviceManager = require('./adamDeviceManager');
 const logger      = require('../utils/logger');
 
-// ─── Station → ADAM DO channel map ────────────────────────────────────────────
-const STATION_CHANNELS = {
-  'STN-01': [0, 1, 2, 3],
-  'STN-02': [4, 5, 6, 7],
-};
 const DEFAULT_STATION = 'STN-01';
-
-function _channels(stationId) {
-  return STATION_CHANNELS[stationId] || STATION_CHANNELS[DEFAULT_STATION];
-}
 
 // In-memory session→party mapping cache
 // Map<sessionId, { [cardCode]: { channel, partyNum } }>
@@ -50,7 +41,8 @@ async function _rebuildMapping(sessionId, cardCode) {
       .query(`SELECT TOP 1 HeaderId FROM GTP_PicklistSessions WHERE SessionID=@sid`);
     const headerId  = sesRes.recordset[0]?.HeaderId || '';
     const stationId = DEFAULT_STATION;
-    const channels  = _channels(stationId);
+    // Fallback array if the default station has no device config row (legacy sessions only).
+    const channels  = deviceManager.getChannels(stationId) || [0, 1, 2, 3];
 
     // Get distinct parties in true customer/insertion order — ProgressID is an
     // IDENTITY column seeded in the same order as activatePicklistLights' seenParties,
@@ -114,14 +106,17 @@ async function _getStationId(sessionId) {
  * - Does NOT turn any light ON — lights activate on first scan via setActivePartyLight()
  */
 async function activatePicklistLights(sessionId, stationId, headerId, parties) {
-  const pool     = await getPool();
-  const channels = _channels(stationId);
-  const mapping  = {};
+  // Throws ADAM_CONFIG_MISSING / ADAM_MAC_MISMATCH — caller (gtpPickingService.startSession)
+  // lets these fail the session start outright; every other error is logged and swallowed.
+  const { device, channels } = deviceManager.assertUsable(stationId);
+
+  const pool    = await getPool();
+  const mapping = {};
 
   logger.info(`[LIGHTS] Init session=${sessionId} station=${stationId} parties=${parties.length} — all OFF`);
 
   // Reset all station channels to OFF — one atomic FC15 write
-  adam.writeAllOutputs(0)
+  device.writeAllOutputs(0)
     .then(()  => logger.info('[LIGHTS] All outputs reset to OFF (session start)'))
     .catch(e  => logger.error(`[LIGHTS] Reset all-OFF failed: ${e.message}`));
 
@@ -183,34 +178,41 @@ async function setActivePartyLight(sessionId, cardCode) {
   }
 
   const stationId = await _getStationId(sessionId);
+  const entry      = deviceManager.getDevice(stationId);
 
-  // Find the channel currently recorded as ON in DB for this session
-  const curRes = await pool.request()
-    .input('sid', sql.Int, sessionId)
-    .query(`SELECT TOP 1 CardCode, Channel FROM GTP_StationLightStatus
-            WHERE SessionID=@sid AND Status='ON'`);
-  const currentOn = curRes.recordset[0] || null;
+  if (!entry || entry.macStatus === 'mismatch') {
+    logger.error(`[LIGHTS] Skipping hardware write — station=${stationId} ${entry ? 'MAC mismatch' : 'no device configured'}`);
+  } else {
+    const device = entry.device;
 
-  logger.info(`[LIGHTS] Spotlight: prevDB=D${currentOn?.Channel ?? 'none'} → target=D${info.channel} (${cardCode})`);
+    // Find the channel currently recorded as ON in DB for this session
+    const curRes = await pool.request()
+      .input('sid', sql.Int, sessionId)
+      .query(`SELECT TOP 1 CardCode, Channel FROM GTP_StationLightStatus
+              WHERE SessionID=@sid AND Status='ON'`);
+    const currentOn = curRes.recordset[0] || null;
 
-  // ── Step 1: Turn OFF the previously active channel if it differs ─────────
-  // (Do NOT skip even if same channel — DB state may be stale vs hardware)
-  if (currentOn !== null && currentOn.Channel !== info.channel) {
-    try {
-      await adam.writeSingleOutput(currentOn.Channel, false);
-      logger.info(`[LIGHTS] D${currentOn.Channel} (prev ${currentOn.CardCode}) → OFF`);
-    } catch (e) {
-      logger.error(`[LIGHTS] D${currentOn.Channel} OFF failed: ${e.message}`);
+    logger.info(`[LIGHTS] Spotlight: prevDB=D${currentOn?.Channel ?? 'none'} → target=D${info.channel} (${cardCode})`);
+
+    // ── Step 1: Turn OFF the previously active channel if it differs ─────────
+    // (Do NOT skip even if same channel — DB state may be stale vs hardware)
+    if (currentOn !== null && currentOn.Channel !== info.channel) {
+      try {
+        await device.writeSingleOutput(currentOn.Channel, false);
+        logger.info(`[LIGHTS] D${currentOn.Channel} (prev ${currentOn.CardCode}) → OFF`);
+      } catch (e) {
+        logger.error(`[LIGHTS] D${currentOn.Channel} OFF failed: ${e.message}`);
+      }
     }
-  }
 
-  // ── Step 2: Always write the target channel ON regardless of DB state ─────
-  // Hardware may be out of sync with DB (server restart resets ADAM to all-OFF)
-  try {
-    await adam.writeSingleOutput(info.channel, true);
-    logger.info(`[LIGHTS] D${info.channel} Party${info.partyNum} (${cardCode}) → ON ✓`);
-  } catch (e) {
-    logger.error(`[LIGHTS] D${info.channel} ON FAILED: ${e.message}`);
+    // ── Step 2: Always write the target channel ON regardless of DB state ─────
+    // Hardware may be out of sync with DB (server restart resets ADAM to all-OFF)
+    try {
+      await device.writeSingleOutput(info.channel, true);
+      logger.info(`[LIGHTS] D${info.channel} Party${info.partyNum} (${cardCode}) → ON ✓`);
+    } catch (e) {
+      logger.error(`[LIGHTS] D${info.channel} ON FAILED: ${e.message}`);
+    }
   }
 
   // ── Update DB ─────────────────────────────────────────────────────────────
@@ -242,10 +244,15 @@ async function handlePartyComplete(sessionId, cardCode) {
   }
 
   const stationId = await _getStationId(sessionId);
+  const entry      = deviceManager.getDevice(stationId);
 
-  adam.writeSingleOutput(info.channel, false)
-    .then(()  => logger.info(`[LIGHTS] D${info.channel} Party${info.partyNum} (${cardCode}) → OFF (done)`))
-    .catch(e  => logger.error(`[LIGHTS] D${info.channel} OFF failed: ${e.message}`));
+  if (!entry || entry.macStatus === 'mismatch') {
+    logger.error(`[LIGHTS] Skipping hardware write — station=${stationId} ${entry ? 'MAC mismatch' : 'no device configured'}`);
+  } else {
+    entry.device.writeSingleOutput(info.channel, false)
+      .then(()  => logger.info(`[LIGHTS] D${info.channel} Party${info.partyNum} (${cardCode}) → OFF (done)`))
+      .catch(e  => logger.error(`[LIGHTS] D${info.channel} OFF failed: ${e.message}`));
+  }
 
   await pool.request()
     .input('sid', sql.Int,          sessionId)
@@ -262,12 +269,16 @@ async function handlePartyComplete(sessionId, cardCode) {
 async function resetStationLights(sessionId) {
   const pool      = await getPool();
   const stationId = await _getStationId(sessionId);
-  const channels  = _channels(stationId);
+  const entry      = deviceManager.getDevice(stationId);
 
   // One atomic FC15 write — all channels OFF
-  adam.writeAllOutputs(0)
-    .then(()  => logger.info(`[LIGHTS] All outputs OFF (picklist done, station=${stationId})`))
-    .catch(e  => logger.error(`[LIGHTS] Reset all-OFF failed: ${e.message}`));
+  if (!entry || entry.macStatus === 'mismatch') {
+    logger.error(`[LIGHTS] Skipping hardware reset — station=${stationId} ${entry ? 'MAC mismatch' : 'no device configured'}`);
+  } else {
+    entry.device.writeAllOutputs(0)
+      .then(()  => logger.info(`[LIGHTS] All outputs OFF (picklist done, station=${stationId})`))
+      .catch(e  => logger.error(`[LIGHTS] Reset all-OFF failed: ${e.message}`));
+  }
 
   await pool.request()
     .input('sid', sql.Int, sessionId)
