@@ -35,6 +35,7 @@ export interface PicklistItem {
 export interface PicklistPreview {
   headerId:          string;
   countofOrder:      number;
+  joinOrder:         string | null;
   parties:           PicklistPartyPreview[];
   totalParties:      number;
   totalItems:        number;
@@ -54,6 +55,7 @@ export interface PicklistSession {
   headerId:          string;
   stationId:         string | null;
   countofOrder:      number;
+  joinOrder:         string | null;
   status:            'InProgress' | 'Completed' | 'Abandoned';
   startedAt:         string;
   parties:           PicklistParty[];

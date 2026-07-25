@@ -61,43 +61,51 @@ async function loadPicklistData(headerId) {
     const result = await pool.request()
         .input('hid', sql.NVarChar(50), headerId)
         .query(`
-            SELECT
-                T0.HeaderId,
-                T0.DocEntry,
-                T1.CardCode,
-                T1.CardName,
-                T1.U_Arcode,
-                T1.U_Brand,
-                T0.ProductCode,
-                T0.ProductName,
-                ISNULL(T0.OrderQty, 0) AS OrderQty,
-                ISNULL(T0.ReqQty, 0) AS ReqQty,
-                T2.U_SalPriceCode,
-                D.CountofOrder,
-                T4.ItmsGrpNam AS ItemGroupName,
-                LTRIM(RTRIM(T3.U_SubGrp5)) AS ItemSize,
-                T3.U_Style AS ItemSleeve,
-                LTRIM(RTRIM(T3.U_SubGrp6)) AS ItemColor
-            FROM (
-                SELECT DISTINCT
-                    HeaderId, DocEntry, ProductCode, ProductName, OrderQty, ReqQty, [LineNo]
-                FROM WMS.dbo.Tran_TransDetails
-                WHERE HeaderId = @hid
-            ) AS T0
-            INNER JOIN BBLive.dbo.ORDR AS T1 ON T0.DocEntry = T1.DocEntry 
-            INNER JOIN (
-                SELECT CardCode, MAX(U_SalPriceCode) AS U_SalPriceCode
-                FROM BBLive.dbo.OCRD
-                GROUP BY CardCode
-            ) AS T2 ON T2.CardCode = T1.CardCode
-            CROSS JOIN (
-                SELECT COUNT(DISTINCT TD.DocEntry) AS CountofOrder
-                FROM WMS.dbo.Tran_TransDetails TD
-                WHERE TD.HeaderId = @hid
-            ) AS D
-            LEFT JOIN BBLive.dbo.OITM AS T3 ON T3.ItemCode = T0.ProductCode COLLATE DATABASE_DEFAULT
-            LEFT JOIN BBLive.dbo.OITB AS T4 ON T4.ItmsGrpCod = T3.ItmsGrpCod
-            ORDER BY T0.DocEntry
+            SELECT T0.headerid                AS HeaderId,
+                T0.docentry                   AS DocEntry,
+                T1.cardcode                   AS CardCode,
+                T1.cardname                   AS CardName,
+                T1.u_arcode                   AS U_Arcode,
+                T1.u_brand                    AS U_Brand,
+                T0.productcode                AS ProductCode,
+                T0.productname                AS ProductName,
+                Isnull(T0.orderqty, 0)     AS OrderQty,
+                Isnull(T0.reqqty, 0)       AS ReqQty,
+                T2.u_salpricecode             AS U_SalPriceCode,
+                D.countoforder                AS CountofOrder,
+                T4.itmsgrpnam              AS ItemGroupName,
+                Ltrim(Rtrim(T3.u_subgrp5)) AS ItemSize,
+                T3.u_style                 AS ItemSleeve,
+                Ltrim(Rtrim(T3.u_subgrp6)) AS ItemColor,
+                T1.u_jointorder AS JoinOrder,
+                T1.u_foldngtyp,
+                T1.u_packngtyp,
+                T1.u_falo,
+                T1.shiptocode
+            FROM   (SELECT DISTINCT headerid,
+                                    docentry,
+                                    productcode,
+                                    productname,
+                                    orderqty,
+                                    reqqty,
+                                    [lineno]
+                    FROM   wms.dbo.tran_transdetails
+                    WHERE  headerid = @hid) AS T0
+                INNER JOIN bblive.dbo.ordr AS T1
+                        ON T0.docentry = T1.docentry
+                INNER JOIN (SELECT cardcode,
+                                    Max(u_salpricecode) AS U_SalPriceCode
+                            FROM   bblive.dbo.ocrd
+                            GROUP  BY cardcode) AS T2
+                        ON T2.cardcode = T1.cardcode
+                CROSS JOIN (SELECT Count(DISTINCT TD.docentry) AS CountofOrder
+                            FROM   wms.dbo.tran_transdetails TD
+                            WHERE  TD.headerid = @hid) AS D
+                LEFT JOIN bblive.dbo.oitm AS T3
+                        ON T3.itemcode = T0.productcode COLLATE database_default
+                LEFT JOIN bblive.dbo.oitb AS T4
+                        ON T4.itmsgrpcod = T3.itmsgrpcod
+            ORDER  BY T0.docentry 
         `);
     return result.recordset;
 }
@@ -199,6 +207,8 @@ async function getSession(sessionId) {
         new Error(`Picklist "${session.HeaderId}" data unavailable`), { status: 404 }
     );
     const countofOrder = rawRows[0].CountofOrder;
+    const joinOrderRow = rawRows.find(r => r.JoinOrder != null && String(r.JoinOrder).trim() !== '');
+    const joinOrder    = joinOrderRow ? String(joinOrderRow.JoinOrder).trim() : null;
 
     const progRes = await pool.request()
         .input('sid', sql.Int, sessionId)
@@ -284,6 +294,7 @@ async function getSession(sessionId) {
         headerId:        session.HeaderId,
         stationId,
         countofOrder,
+        joinOrder,
         status:          session.Status,
         startedAt:       session.StartedAt,
         parties,

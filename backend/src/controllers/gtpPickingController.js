@@ -8,6 +8,8 @@ async function loadPicklist(req, res, next) {
             return res.status(404).json({ success: false, message: `Picklist "${headerId}" not found`, code: 'PICKLIST_NOT_FOUND' });
 
         const countofOrder = rows[0].CountofOrder;
+        const joinOrderRow = rows.find(r => r.JoinOrder != null && String(r.JoinOrder).trim() !== '');
+        const joinOrder    = joinOrderRow ? String(joinOrderRow.JoinOrder).trim() : null;
 
         // Group by party for preview (no session yet)
         const partyMap = {};
@@ -34,6 +36,7 @@ async function loadPicklist(req, res, next) {
             data: {
                 headerId,
                 countofOrder,
+                joinOrder,
                 parties,
                 totalParties:      parties.length,
                 totalItems:        rows.length,

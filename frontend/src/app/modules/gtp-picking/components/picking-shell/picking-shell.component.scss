@@ -53,6 +53,8 @@ $orange:    #ff9800;
   .bar-station { font-weight: 600; color: $blue; font-size: 12px; background: $blue-dim;
                   padding: 2px 8px; border-radius: 4px; }
   .bar-spacer { flex: 1; }
+  .bar-join-order { font-weight: 600; color: $amber; font-size: 12px; background: $amber-dim;
+                     padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
 
   .bar-progress {
     display: flex;

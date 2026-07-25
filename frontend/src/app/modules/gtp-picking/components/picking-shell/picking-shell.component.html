@@ -101,6 +101,9 @@
       <span class="bar-sep">›</span>
       <span class="bar-party">{{ currentParty?.cardName }}</span>
       <span class="bar-spacer"></span>
+      <span class="bar-join-order" *ngIf="session?.joinOrder as joinOrder" matTooltip="Join Order">
+        Join Order: <strong>{{ joinOrder }}</strong>
+      </span>
       <div class="bar-progress" *ngIf="currentParty">
         <span>{{ doneItemCount(currentParty) }}/{{ currentParty.items.length }} items</span>
         <mat-progress-bar mode="determinate"
