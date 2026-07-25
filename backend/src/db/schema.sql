@@ -164,10 +164,17 @@ CREATE TABLE GTP_PicklistSessions (
     Status       NVARCHAR(20)  NOT NULL DEFAULT 'InProgress',  -- InProgress | Completed | Abandoned
     OperatorID   INT           NULL REFERENCES GTP_Operators(OperatorID),
     StartedAt    DATETIME      NOT NULL DEFAULT GETDATE(),
-    CompletedAt  DATETIME      NULL
+    CompletedAt  DATETIME      NULL,
+    StationId    NVARCHAR(50)  NULL,          -- device code, e.g. 'STN-01'; snapshotted at session start
+    TotalOrders  INT           NOT NULL DEFAULT 0  -- distinct SAP order count for this picklist, snapshotted at session start
 );
 GO
 CREATE INDEX IX_PicklistSessions_HeaderId ON GTP_PicklistSessions (HeaderId);
+GO
+
+-- Covering index for the day-wise/station-wise picking report (reportService.js)
+CREATE INDEX IX_PicklistSessions_Report ON GTP_PicklistSessions (StartedAt)
+    INCLUDE (StationId, OperatorID, Status, HeaderId, CompletedAt, TotalOrders);
 GO
 
 -- Picked quantity tracker (one row per session + party + item)
@@ -185,6 +192,8 @@ CREATE TABLE GTP_PickProgress (
 );
 GO
 CREATE INDEX IX_PickProgress_Session ON GTP_PickProgress (SessionID, CardCode);
+GO
+CREATE INDEX IX_PickProgress_Report ON GTP_PickProgress (SessionID) INCLUDE (Status, PickedQty);
 GO
 
 -- Individual scan transaction log

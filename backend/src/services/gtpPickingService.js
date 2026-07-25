@@ -4,6 +4,43 @@ const delivery = require('./deliveryService');
 const lights = require('./lightControlService');
 const { BLOCKING_ERROR_CODES } = require('./adamDeviceManager');
 
+// ── Idempotent schema evolution for report support (StationId/TotalOrders) ───
+let _reportColumnsEnsured = false;
+async function ensureSessionReportColumns(pool) {
+    if (_reportColumnsEnsured) return;
+    await pool.request().query(`
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('GTP_PicklistSessions') AND name = 'StationId')
+            ALTER TABLE GTP_PicklistSessions ADD StationId NVARCHAR(50) NULL;
+
+        IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('GTP_PicklistSessions') AND name = 'TotalOrders')
+            ALTER TABLE GTP_PicklistSessions ADD TotalOrders INT NOT NULL DEFAULT 0;
+    `);
+
+    // Best-effort, naturally idempotent backfill of StationId for pre-existing rows
+    await pool.request().query(`
+        IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'GTP_StationLightStatus')
+        UPDATE S SET S.StationId = SL.StationId
+        FROM GTP_PicklistSessions S
+        INNER JOIN (
+            SELECT SessionID, MIN(StationId) AS StationId
+            FROM GTP_StationLightStatus
+            GROUP BY SessionID
+        ) SL ON SL.SessionID = S.SessionID
+        WHERE S.StationId IS NULL;
+    `);
+
+    await pool.request().query(`
+        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_PicklistSessions_Report')
+            CREATE INDEX IX_PicklistSessions_Report ON GTP_PicklistSessions (StartedAt)
+                INCLUDE (StationId, OperatorID, Status, HeaderId, CompletedAt, TotalOrders);
+
+        IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_PickProgress_Report')
+            CREATE INDEX IX_PickProgress_Report ON GTP_PickProgress (SessionID) INCLUDE (Status, PickedQty);
+    `);
+
+    _reportColumnsEnsured = true;
+}
+
 // ── Parse barcode: ITEMCODE|ST|IDVALUE|GROUP|UNIQUENUM|QTY ────
 function parseBarcode(raw) {
     const parts = raw.trim().split('|');
@@ -68,6 +105,7 @@ async function loadPicklistData(headerId) {
 // ── Start a new picking session ────────────────────────────────
 async function startSession(headerId, operatorId, stationId = 'STN-01') {
     const pool = await getPool();
+    await ensureSessionReportColumns(pool);
 
     // Deactivate any existing InProgress session for this picklist
     await pool.request()
@@ -81,13 +119,16 @@ async function startSession(headerId, operatorId, stationId = 'STN-01') {
         { status: 404, code: 'PICKLIST_NOT_FOUND' }
     );
 
-    // Create session
+    // Create session — StationId/TotalOrders are snapshotted now so the picking
+    // report never needs a live WMS join or a GTP_StationLightStatus lookup.
     const sesRes = await pool.request()
         .input('hid',  sql.NVarChar(50), headerId)
         .input('opid', sql.Int,          operatorId || null)
-        .query(`INSERT INTO GTP_PicklistSessions (HeaderId, OperatorID)
+        .input('stn',  sql.NVarChar(50), stationId  || null)
+        .input('ords', sql.Int,          rows[0].CountofOrder || 0)
+        .query(`INSERT INTO GTP_PicklistSessions (HeaderId, OperatorID, StationId, TotalOrders)
                 OUTPUT INSERTED.SessionID
-                VALUES (@hid, @opid)`);
+                VALUES (@hid, @opid, @stn, @ords)`);
     const sessionId = sesRes.recordset[0].SessionID;
 
     // Seed GTP_PickProgress — one row per CardCode + ProductCode
@@ -143,10 +184,15 @@ async function getSession(sessionId) {
     const session = sesRes.recordset[0];
     if (!session) throw Object.assign(new Error('Session not found'), { status: 404 });
 
-    const stationRes = await pool.request()
-        .input('sid', sql.Int, sessionId)
-        .query(`SELECT TOP 1 StationId FROM GTP_StationLightStatus WHERE SessionID=@sid`);
-    const stationId = stationRes.recordset[0]?.StationId || null;
+    // StationId is snapshotted on GTP_PicklistSessions at session start; fall back to
+    // the light-status side table only for pre-migration sessions that predate that column.
+    let stationId = session.StationId || null;
+    if (!stationId) {
+        const stationRes = await pool.request()
+            .input('sid', sql.Int, sessionId)
+            .query(`SELECT TOP 1 StationId FROM GTP_StationLightStatus WHERE SessionID=@sid`);
+        stationId = stationRes.recordset[0]?.StationId || null;
+    }
 
     const rawRows = await loadPicklistData(session.HeaderId);
     if (!rawRows.length) throw Object.assign(
@@ -407,4 +453,7 @@ async function resumeSession(headerId) {
     return res.recordset[0] || null;
 }
 
-module.exports = { startSession, getSession, processScan, resumeSession, loadPicklistData };
+module.exports = {
+    startSession, getSession, processScan, resumeSession, loadPicklistData,
+    ensureSessionReportColumns,
+};

@@ -23,7 +23,7 @@ const io = new Server(server, {
 });
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: '*' }));
+app.use(cors({ origin: '*', exposedHeaders: ['Content-Disposition'] }));
 app.use(morgan('dev'));
 app.use(express.json());
 
