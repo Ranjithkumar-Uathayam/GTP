@@ -1,3 +1,57 @@
+if (typeof TextDecoder !== 'undefined') {
+    const NativeTextDecoder = TextDecoder;
+    const toBuffer = (input) => {
+        if (Buffer.isBuffer(input)) return input;
+        if (input instanceof ArrayBuffer) return Buffer.from(input);
+        return Buffer.from(input.buffer, input.byteOffset, input.byteLength);
+    };
+
+    global.TextDecoder = class TextDecoder {
+        constructor(encoding = 'utf-8', options) {
+            this.encoding = encoding;
+            try {
+                this._native = new NativeTextDecoder(encoding, options);
+            } catch (err) {
+                if (err.code !== 'ERR_ENCODING_NOT_SUPPORTED') throw err;
+                // pkg's bundled Node lacks ICU data for legacy single-byte encodings
+                // (e.g. 'ascii'/'windows-1252') that fontkit needs when pdfkit loads.
+                this._native = null;
+            }
+        }
+
+        decode(input, options) {
+            if (this._native) return this._native.decode(input, options);
+            return toBuffer(input).toString('latin1');
+        }
+    };
+}
+
+if (!AbortSignal.any) {
+    AbortSignal.any = function (signals) {
+        const controller = new AbortController();
+
+        function onAbort() {
+            controller.abort();
+            cleanup();
+        }
+
+        function cleanup() {
+            for (const s of signals) {
+                s.removeEventListener("abort", onAbort);
+            }
+        }
+
+        for (const s of signals) {
+            s.addEventListener("abort", onAbort);
+        }
+
+        if (signals.some(s => s.aborted)) {
+            controller.abort();
+        }
+
+        return controller.signal;
+    };
+}
 require('dotenv').config();
 const http     = require('http');
 const express  = require('express');
